@@ -19,3 +19,5 @@ def send_vibration(tracker_name, share_code, mode, intensity, duration):
         print(f"Vibration sent successfully for tracker: {tracker_name}")
     else:
         print(f"Failed to send vibration for tracker: {tracker_name}. Status code: {response.status_code}, Response: {response.text}")
+
+# need to fix so that it can do it multiple shockers at once, instead of just one at a time after another

@@ -4,12 +4,17 @@ import threading
 import sys
 import Pishock_API
 import settings
+import re
 
 # Global reference to the subprocess instance
 archipelago_process = None
+ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
 
 # Add a global flag to signal thread termination
 stop_output_thread = False
+
+def strip_ansi_codes(text):
+    return ansi_escape.sub('', text)
 
 def read_output(process):
     """Read and print the output from the subprocess, and check for traps and trackers."""
@@ -22,30 +27,42 @@ def read_output(process):
         print(line, end="")  # Print the output to the console
 
         # Ignore everything before the word "found" and check for traps in the rest of the line
-        if "found" in line:
-            processed_line = line.split("found", 1)[1]  # Keep only the part after "found"
+        handle_received_item(line)
 
-            # Check for each trap in the processed line
-            if not settings.traps:  # If no traps are defined, skip processing
-                print("No traps defined in settings. Skipping...")
-                continue
+def handle_received_item(processed_line):
+    line = strip_ansi_codes(processed_line.lower())
+    player_name = settings.name.lower()
 
-            for trap_name, trackers in settings.traps.items():
-                if trap_name in processed_line:
-                    # If the trap is found, iterate over its trackers
-                    for tracker_name, tracker_data in trackers.items():
-                        try:
-                            Pishock_API.send_vibration(
-                                tracker_name,
-                                tracker_data["share_code"],
-                                tracker_data["mode"],
-                                tracker_data["intensity"],
-                                tracker_data["duration"]
-                            )
-                        except KeyError as e:
-                            print(f"Error: Missing key {e} in tracker data for {tracker_name}. Skipping...")
-                        except Exception as e:
-                            print(f"Unexpected error while processing tracker {tracker_name}: {e}")
+    # Check if this line is directed at you
+    print(f"Checking line: {line}")
+    if (
+        f"{player_name} found their " in line or
+        f"to {player_name}" in line
+    ):
+        print(f"Detected line for {player_name}: {line}")
+        check_for_traps(processed_line)
+
+def check_for_traps(processed_line):
+    if not settings.traps:
+        print("No traps defined in settings. Skipping...")
+    else:
+        for trap_name, trackers in settings.traps.items():
+            if trap_name in processed_line:
+                # If the trap is found, iterate over its trackers
+                print(f"Trap found: {trap_name}")
+                for tracker_name, tracker_data in trackers.items():
+                    try:
+                        Pishock_API.send_vibration(
+                            tracker_name,
+                            tracker_data["share_code"],
+                            tracker_data["mode"],
+                            tracker_data["intensity"],
+                            tracker_data["duration"]
+                        )
+                    except KeyError as e:
+                        print(f"Error: Missing key {e} in tracker data for {tracker_name}. Skipping...")
+                    except Exception as e:
+                        print(f"Unexpected error while processing tracker {tracker_name}: {e}")
 
 def monitor_user_input():
     """Monitor user input and terminate the process if 'quit' is entered."""
