@@ -11,22 +11,42 @@ archipelago_process = None
 # Add a global flag to signal thread termination
 stop_output_thread = False
 
-def read_output(process, keyword):
-    """Read and print the output from the subprocess, and check for a specific word."""
+def read_output(process):
+    """Read and print the output from the subprocess, and check for traps and trackers."""
     global stop_output_thread
-
-    for line in process.stdout:
-        if stop_output_thread or process.poll() is not None:  # Stop reading if the process is terminated
+    while True:
+        line = process.stdout.readline()
+        if not line and process.poll() is not None:  # Stop reading if the process is terminated
             break
 
         print(line, end="")  # Print the output to the console
 
-        # Ignore everything before the word "found" and check for the keyword in the rest of the line
+        # Ignore everything before the word "found" and check for traps in the rest of the line
         if "found" in line:
             processed_line = line.split("found", 1)[1]  # Keep only the part after "found"
 
-            if keyword in processed_line:
-                Pishock_API.send_vibration(settings.mode, settings.intensity, settings.duration)
+            # Check for each trap in the processed line
+            if not settings.traps:  # If no traps are defined, skip processing
+                print("No traps defined in settings. Skipping...")
+                continue
+
+            for trap_name, trackers in settings.traps.items():
+                if trap_name in processed_line:
+                    # If the trap is found, iterate over its trackers
+                    for tracker_name, tracker_data in trackers.items():
+                        try:
+                            Pishock_API.send_vibration(
+                                tracker_name,
+                                tracker_data["share_code"],
+                                tracker_data["mode"],
+                                tracker_data["intensity"],
+                                tracker_data["duration"]
+                            )
+                        except KeyError as e:
+                            print(f"Error: Missing key {e} in tracker data for {tracker_name}. Skipping...")
+                        except Exception as e:
+                            print(f"Unexpected error while processing tracker {tracker_name}: {e}")
+
 def monitor_user_input():
     """Monitor user input and terminate the process if 'quit' is entered."""
     global stop_output_thread
@@ -41,7 +61,12 @@ def main(Name, server_port, keyword, archipelago_path=None):
     global archipelago_process
 
     # Define the path to the ArchipelagoTextClient executable
-    client_path = os.path.join(archipelago_path, 'ArchipelagoTextClient')  # Adjust as needed
+    client_path = os.path.join(archipelago_path, 'ArchipelagoTextClient.exe')  # Adjust as needed
+
+    # Check if the executable exists
+    if not os.path.exists(client_path):
+        print(f"Error: The ArchipelagoTextClient executable was not found at {client_path}.")
+        return
 
     # Define the server address and port
     server_address = 'archipelago.gg'
@@ -49,6 +74,9 @@ def main(Name, server_port, keyword, archipelago_path=None):
     # Construct the command to run the text client in non-GUI mode and connect to the server
     server_url = f"archipelago://{server_address}:{server_port}"
     command = [client_path, '--nogui', server_url]
+
+    # Print the command for debugging
+    print(f"Running command: {' '.join(command)}")
 
     try:
         # Start the subprocess with stdin, stdout, and stderr pipes
@@ -66,13 +94,13 @@ def main(Name, server_port, keyword, archipelago_path=None):
         while True:
             line = archipelago_process.stdout.readline()
             if "Enter slot name:" in line:
-                print(line, end="")  # Print the prompt to the console
+                print("Logged in successfully")
                 archipelago_process.stdin.write(Name + '\n')  # Send the Name variable
                 archipelago_process.stdin.flush()  # Ensure the input is sent immediately
                 break
 
         # Start a thread to monitor the output from the subprocess
-        output_thread = threading.Thread(target=read_output, args=(archipelago_process, keyword))
+        output_thread = threading.Thread(target=read_output, args=(archipelago_process,))
         output_thread.daemon = True
         output_thread.start()
 
