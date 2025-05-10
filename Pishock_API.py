@@ -1,15 +1,15 @@
 import requests
-import Main
+import settings
 
 def send_vibration(mode, intensity, duration):
     url = "https://do.pishock.com/api/apioperate"
     payload = {
-        "Username": str(Main.pishock_username),  # Replace with your PiShock username
+        "Username": str(settings.pishock_username),  # Replace with your PiShock username
         "Name": "Automatic shock",  # Replace with your device name (or just write whatever you want)
-        "Code": Main.SHARE_CODE,
+        "Code": settings.SHARE_CODE,
         "Intensity": str(intensity),  # Intensity as a string
         "Duration": str(duration),   # Duration as a string
-        "Apikey": Main.API_KEY,
+        "Apikey": settings.API_KEY,
         "Op": str(mode)  # 0 = Shock, 1 = vibration, 2 = BEEP
     }
 

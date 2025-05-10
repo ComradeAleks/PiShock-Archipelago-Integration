@@ -2,6 +2,8 @@ import subprocess
 import os
 import threading
 import sys
+import Pishock_API
+import settings
 
 # Global reference to the subprocess instance
 archipelago_process = None
@@ -12,26 +14,19 @@ stop_output_thread = False
 def read_output(process, keyword):
     """Read and print the output from the subprocess, and check for a specific word."""
     global stop_output_thread
-    start_logging = False
-    target_message = (
-        "Now that you are connected, you can use !help to list commands to run via the server. "
-        "If your client supports it, you may have additional local commands you can list with /help."
-    )
 
     for line in process.stdout:
         if stop_output_thread or process.poll() is not None:  # Stop reading if the process is terminated
             break
 
-        if not start_logging:
-            if target_message in line:
-                start_logging = True
-            continue
-
         print(line, end="")  # Print the output to the console
 
-        if keyword in line:
-            print("The word was found")
+        # Ignore everything before the word "found" and check for the keyword in the rest of the line
+        if "found" in line:
+            processed_line = line.split("found", 1)[1]  # Keep only the part after "found"
 
+            if keyword in processed_line:
+                Pishock_API.send_vibration(settings.mode, settings.intensity, settings.duration)
 def monitor_user_input():
     """Monitor user input and terminate the process if 'quit' is entered."""
     global stop_output_thread
@@ -66,13 +61,12 @@ def main(Name, server_port, keyword, archipelago_path=None):
         )
         print(f"Started ArchipelagoTextClient connecting to {server_url}")
 
-        # Wait for "Enter slot name:" before sending the Name variable
+        # Immediately send the Name variable to the subprocess
+        # Wait for "Enter slot name:" to appear in the output
         while True:
             line = archipelago_process.stdout.readline()
-            if not line:
-                break
-            print(line, end="")
             if "Enter slot name:" in line:
+                print(line, end="")  # Print the prompt to the console
                 archipelago_process.stdin.write(Name + '\n')  # Send the Name variable
                 archipelago_process.stdin.flush()  # Ensure the input is sent immediately
                 break
