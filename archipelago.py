@@ -21,19 +21,17 @@ def read_output(process):
     global stop_output_thread
     while True:
         line = process.stdout.readline()
-        if not line and process.poll() is not None:  # Stop reading if the process is terminated
+        if not line and process.poll() is not None:
             break
 
-        print(line, end="")  # Print the output to the console
-
-        # Ignore everything before the word "found" and check for traps in the rest of the line
+        print(line, end="")  # for printing archipelago messages
         handle_received_item(line)
 
 def handle_received_item(processed_line):
     line = strip_ansi_codes(processed_line.lower())
     player_name = settings.name.lower()
 
-    # Check if this line is directed at you
+    # Check to see if this line is directed at whever you want to be shocked
     if (
         f"{player_name} found their " in line or
         f"to {player_name}" in line
@@ -66,27 +64,14 @@ def check_for_traps(processed_line):
                     print(f"Error: Missing key {e} in tracker data for {tracker_name}. Skipping...")
                 except Exception as e:
                     print(f"Unexpected error while processing tracker {tracker_name}: {e}")
-
+            # threading so that it can send multiple shocks at once
             threads = []
             for tracker_name, tracker_data in trackers.items():
                 t = threading.Thread(target=send_command, args=(tracker_name, tracker_data))
                 t.start()
                 threads.append(t)
-
-            # Optional: wait for all threads to complete
             for t in threads:
                 t.join()
-
-
-def monitor_user_input():
-    """Monitor user input and terminate the process if 'quit' is entered."""
-    global stop_output_thread
-    while True:
-        user_input = input()
-        if user_input.strip().lower() == "quit":
-            terminate_archipelago()
-            print("Exiting...")
-            sys.exit(0)  # Exit the script
 
 def main(Name, server_port, keyword, archipelago_path=None):
     global archipelago_process
@@ -120,25 +105,19 @@ def main(Name, server_port, keyword, archipelago_path=None):
         )
         print(f"Started ArchipelagoTextClient connecting to {server_url}")
 
-        # Immediately send the Name variable to the subprocess
-        # Wait for "Enter slot name:" to appear in the output
+        # Wait for "Enter slot name:" to appear in the output then send the name to log in
         while True:
             line = archipelago_process.stdout.readline()
             if "Enter slot name:" in line:
                 print("Logged in successfully")
-                archipelago_process.stdin.write(Name + '\n')  # Send the Name variable
-                archipelago_process.stdin.flush()  # Ensure the input is sent immediately
+                archipelago_process.stdin.write(Name + '\n')
+                archipelago_process.stdin.flush() 
                 break
 
         # Start a thread to monitor the output from the subprocess
         output_thread = threading.Thread(target=read_output, args=(archipelago_process,))
         output_thread.daemon = True
         output_thread.start()
-
-        # Start a thread to monitor user input
-        input_thread = threading.Thread(target=monitor_user_input)
-        input_thread.daemon = True
-        input_thread.start()
 
         # Wait for the subprocess to finish
         archipelago_process.wait()
@@ -148,13 +127,14 @@ def main(Name, server_port, keyword, archipelago_path=None):
     except Exception as e:
         print(f"An error occurred: {e}")
 
+
+
 def terminate_archipelago():
     """Terminate the Archipelago subprocess if it's running."""
     global archipelago_process, stop_output_thread
-    stop_output_thread = True  # Signal the output thread to stop
-    if archipelago_process and archipelago_process.poll() is None:  # Check if the process is still running
-        archipelago_process.terminate()  # Send termination signal
-        archipelago_process.wait()  # Wait for the process to fully terminate
+    stop_output_thread = True
+    if archipelago_process and archipelago_process.poll() is None:
+        archipelago_process.terminate()
+        archipelago_process.wait()
         archipelago_process = None
-
 
