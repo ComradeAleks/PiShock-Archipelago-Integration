@@ -34,7 +34,6 @@ def handle_received_item(processed_line):
     player_name = settings.name.lower()
 
     # Check if this line is directed at you
-    print(f"Checking line: {line}")
     if (
         f"{player_name} found their " in line or
         f"to {player_name}" in line
@@ -45,24 +44,39 @@ def handle_received_item(processed_line):
 def check_for_traps(processed_line):
     if not settings.traps:
         print("No traps defined in settings. Skipping...")
-    else:
-        for trap_name, trackers in settings.traps.items():
-            if trap_name in processed_line:
-                # If the trap is found, iterate over its trackers
-                print(f"Trap found: {trap_name}")
-                for tracker_name, tracker_data in trackers.items():
-                    try:
-                        Pishock_API.send_vibration(
-                            tracker_name,
-                            tracker_data["share_code"],
-                            tracker_data["mode"],
-                            tracker_data["intensity"],
-                            tracker_data["duration"]
-                        )
-                    except KeyError as e:
-                        print(f"Error: Missing key {e} in tracker data for {tracker_name}. Skipping...")
-                    except Exception as e:
-                        print(f"Unexpected error while processing tracker {tracker_name}: {e}")
+        return
+    if ":" in processed_line:
+        print("Trap found in line, but looks to be a message. Skipping...")
+        return
+
+    for trap_name, trackers in settings.traps.items():
+        if trap_name in processed_line:
+            print(f"Trap found: {trap_name}")
+
+            def send_command(tracker_name, tracker_data):
+                try:
+                    Pishock_API.send_vibration(
+                        tracker_name,
+                        tracker_data["share_code"],
+                        tracker_data["mode"],
+                        tracker_data["intensity"],
+                        tracker_data["duration"]
+                    )
+                except KeyError as e:
+                    print(f"Error: Missing key {e} in tracker data for {tracker_name}. Skipping...")
+                except Exception as e:
+                    print(f"Unexpected error while processing tracker {tracker_name}: {e}")
+
+            threads = []
+            for tracker_name, tracker_data in trackers.items():
+                t = threading.Thread(target=send_command, args=(tracker_name, tracker_data))
+                t.start()
+                threads.append(t)
+
+            # Optional: wait for all threads to complete
+            for t in threads:
+                t.join()
+
 
 def monitor_user_input():
     """Monitor user input and terminate the process if 'quit' is entered."""
