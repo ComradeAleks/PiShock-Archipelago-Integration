@@ -32,11 +32,21 @@ with open(env_file_path, "r", encoding="utf-8") as f:
             env_vars[key.strip()] = value
 
 # Assign .env values
-pishock_username = env_vars.get("pishock_username")
-API_KEY = env_vars.get("API_KEY")
-server_port = env_vars.get("server_port")
-archipelago_path = env_vars.get("archipelago_path")
-name = env_vars.get("Archipelago_name")
+pishock_username = str(env_vars.get("pishock_username"))
+API_KEY = str(env_vars.get("API_KEY"))
+server_port = str(env_vars.get("server_port"))
+Game = str(env_vars.get("server_game"))
+name = str(env_vars.get("Archipelago_name"))
+Deathlink = env_vars.get("Deathlink")
+Password = str(env_vars.get("Password"))
+
+Deathlink_Tracker_name = env_vars.get("Deathlink_Tracker_name")
+DeathLink_Share_code = env_vars.get("DeathLink_Share_code")
+Deathlink_mode = env_vars.get("Deathlink_mode")
+Deathlink_intensity = env_vars.get("Deathlink_intensity")
+Deathlink_duration = env_vars.get("Deathlink_duration")
+
+
 
 # Handle traps dictionary
 traps = {}

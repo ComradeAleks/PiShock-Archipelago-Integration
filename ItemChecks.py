@@ -35,3 +35,26 @@ def check_for_traps(processed_line):
                 threads.append(t)
             for t in threads:
                 t.join()
+
+def send_shock(tracker_name, share_codes, mode, intensity, duration):
+    def send_shock_command(tracker_name, share_code, mode, intensity, duration):
+        try:
+            Pishock_API.send_vibration(
+                tracker_name,
+                share_code,
+                mode,
+                intensity,
+                duration
+            )
+        except KeyError as e:
+            print(f"Error: Missing key {e} in tracker data for {tracker_name}. Skipping...")
+        except Exception as e:
+            print(f"Unexpected error while processing tracker {tracker_name}: {e}") 
+
+    threads = []
+    for share_code in share_codes:
+        t = threading.Thread(target=send_shock_command, args=(tracker_name, share_code, mode, intensity, duration))
+        t.start()
+        threads.append(t)
+    for t in threads:
+        t.join()

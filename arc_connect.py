@@ -7,16 +7,31 @@ import websockets
 import ItemChecks
 import Pishock_API
 import settings
+import ast
 
 serverport = str(settings.server_port)
 SERVER_URI     = "wss://archipelago.gg:" + serverport
 SLOT_NAME      = settings.name
-PASSWORD       = ""
-GAME           = "Minecraft"
-
-TAGS           = ["DeathLink"]
+GAME           = settings.Game
 ITEMS_HANDLING = 0b001
 SLOT_DATA      = False
+
+if settings.Password != "None":
+    PASSWORD = settings.Password
+else:
+    PASSWORD = ""
+if settings.Deathlink == "True":
+    TAGS = ["DeathLink"]
+elif settings.Deathlink == "False":
+    TAGS = []
+
+
+D_Tracker_names = settings.Deathlink_Tracker_name
+D_mode = settings.Deathlink_mode
+D_intesity = settings.Deathlink_intensity
+D_duration = settings.Deathlink_duration
+D_Share_Codes = settings.DeathLink_Share_code
+D_Share_Codes = ast.literal_eval(D_Share_Codes)
 
 async def archipelago_client():
     name_map = {}
@@ -33,7 +48,7 @@ async def archipelago_client():
         )
         if room_info is None:
             raise RuntimeError("Did not receive RoomInfo from server")
-        print("RoomInfo:", room_info)
+        #print("RoomInfo:", room_info)
 
         # 2) Build dynamic games list for DataPackage
         games_field = room_info.get("games") or room_info.get("Games")
@@ -88,16 +103,14 @@ async def archipelago_client():
             "tags":           TAGS,
             "slot_data":      SLOT_DATA
         }]))
-        print("→ Sent Connect")
-
+        print("Connecting to server...")
 
         # 6) Connected confirmation
         connected = json.loads(await ws.recv())
-        print("Connected:", connected)
+        #print("Connected:", connected)
         print("… now listening for RoomUpdate and ReceivedItems …")
         
         MY_SLOT_ID = get_my_slot(connected, SLOT_NAME)
-        print(MY_SLOT_ID)
 
         # 7) Main event loop
         while True:
@@ -109,24 +122,9 @@ async def archipelago_client():
             packet = json.loads(frame)
             for cmd in packet:
                 c = cmd.get("cmd")
-
-                # When items arrive in your slot from others
-                if c == "ReceivedItems":
-                    for grant in cmd.get("items", []):
-                        item_id   = grant.get("item")
-                        item_name = name_map.get(item_id, "<unknown>")
-                        sender    = grant.get("player")
-
-                        if sender == SLOT_NAME:
-                            print(f"You picked up: {item_name} (ID {item_id})")
-                        else:
-                            print(f"From {sender!r}: {item_name} (ID {item_id})")
-
-                        # Fire off the PiShock
-                        ItemChecks.check_for_traps(item_name)
-
-                # when you send yourself items
-                elif c == "PrintJSON" and cmd.get("type") == "ItemSend":
+                
+                # when you get an item
+                if c == "PrintJSON" and cmd.get("type") == "ItemSend":
                     # 1) checking if the item belongs to you
                     if cmd.get("receiving") != MY_SLOT_ID:
                         continue
@@ -140,7 +138,7 @@ async def archipelago_client():
                             # self pickup and item confirmed:
                             item_id   = int(entry["text"])
                             item_name = name_map.get(item_id, "<unknown>")
-                            print(f"You found: {item_name} (ID {item_id})")
+                            print(f"Recieved item: {item_name} (ID {item_id})")
 
                             # shocking time
                             ItemChecks.check_for_traps(item_name)
@@ -154,13 +152,13 @@ async def archipelago_client():
                         await ws.send(json.dumps([{"cmd": "CheckLocation", "location": loc}]))
 
                 # DeathLink
-                elif c == "DeathLink":
-                    print(f"DeathLink from {cmd['source']!r}: {cmd['cause']!r}")
-                    #Pishock_API.send_vibration()
-                elif c == "Bounced":
+#                elif c == "DeathLink":
+#                    print(f"DeathLink from {cmd['source']!r}: {cmd['cause']!r}")
+#                    Pishock_API.send_vibration(D_Tracker_names, D_Share_Codes, D_mode, D_intesity, D_duration)
+                elif c == "Bounced" or c == "DeathLink":
                     d = cmd.get("data", {})
-                    print(f"Bounced death ({d.get('source')!r}): {d.get('cause')!r}")
-                    #Pishock_API.send_vibration()
+                    print(f"DeathLink from {d.get('source')!r} because of {d.get('cause')!r}")
+                    ItemChecks.send_shock(D_Tracker_names, D_Share_Codes, D_mode, D_intesity, D_duration)
                 else:
                     #print(f"Other `{c}`: {cmd!r}")
                     pass

@@ -34,7 +34,6 @@ def on_close_event(ctrl_type):
 #  close event handler
 win32api.SetConsoleCtrlHandler(on_close_event, True)
 atexit.register(lambda: print("Program exited normally."))
-
 # Loop for closing the window and running the program
 try:
     while True:
