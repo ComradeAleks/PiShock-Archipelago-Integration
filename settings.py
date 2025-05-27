@@ -1,16 +1,21 @@
 import os
 import requests
 import yaml
+import sys
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(current_dir, "config.yml")
+if getattr(sys, 'frozen', False):
+    current_dir = os.path.dirname(sys.executable)
+else:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+config_path = os.path.join(current_dir, "config.yaml")
 
 # Load YAML
 with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
 
 #Archipelago variables:
-server_port         = config["archipelago"]["server_port"]
+server_port         = config["archipelago"]["room_code"]
 archipelago_name    = config["archipelago"]["name"]
 game                = config["archipelago"]["game"]
 password            = config["archipelago"]["password"]
@@ -20,12 +25,12 @@ pishock_name        = config["pishock"]["username"]
 api_key             = config["pishock"]["api_key"]
 hub_client_id       = config["pishock"]["client_id"]
 
-#Shockers:
-shockers            = config["shockers"]
+#devices:
+devices            = config["devices"]
 
 #deathlink variables:
 Deathlink_mode      = config["deathlink"]["activated"]
-Deathlink_Shockers  = config["deathlink"]["shockers"]
+Deathlink_devices  = config["deathlink"]["devices"]
 
 #Traps n items:
 traps               = config["traps"]

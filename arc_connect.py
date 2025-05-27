@@ -129,7 +129,7 @@ async def archipelago_client(pishock_client):
                             item_name = name_map.get(item_id, "<unknown>")
                             print(f"Recieved item: {item_name} (ID {item_id})")
 
-                            # shocking time
+                            # activation time
                             await check_for_traps(item_name, pishock_client)
                             break
 
@@ -144,7 +144,7 @@ async def archipelago_client(pishock_client):
                 elif c == "Bounced" or c == "DeathLink":
                     d = cmd.get("data", {})
                     print(f"DeathLink from {d.get('source')!r} because of {d.get('cause')!r}")
-                    await websocket2.send_shock(settings.Deathlink_Shockers, pishock_client)
+                    await websocket2.send_activation(settings.Deathlink_devices, pishock_client)
                 else:
                     #print(f"Other `{c}`: {cmd!r}")
                     pass
@@ -153,9 +153,9 @@ async def check_for_traps(processed_line: str, pishock_client):
     if not settings.traps or ":" in processed_line:
         return
 
-    for trap_name, shocker_names in settings.traps.items():
+    for trap_name, device_names in settings.traps.items():
         if trap_name.lower() in processed_line.lower():
-            await websocket2.send_shock(shocker_names, pishock_client)
+            await websocket2.send_activation(device_names, pishock_client)
             break
 
 

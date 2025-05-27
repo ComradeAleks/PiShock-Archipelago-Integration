@@ -88,7 +88,7 @@ class PiShockClient:
 
         publish_commands = []
 
-        for name, shocker_id, share_code, mode, intensity, duration_ms in commands:
+        for name, device_id, share_code, mode, intensity, duration_ms in commands:
             if int(mode) not in mode_map:
                 raise ValueError(f"Unknown mode: {mode}")
 
@@ -101,7 +101,7 @@ class PiShockClient:
             )
 
             body = PublishCommandBody(
-                id=int(shocker_id),
+                id=int(device_id),
                 m=mode_map[int(mode)],
                 i=int(intensity),
                 d=int(duration_ms),
@@ -120,7 +120,7 @@ class PiShockClient:
             PublishCommands=publish_commands
         )
 
-    async def send_shocks_now(self, commands: list[list[str | int]], repeating: bool = False):
+    async def send_activation_now(self, commands: list[list[str | int]], repeating: bool = False):
         command_packet = self._build_command_packet(commands, repeating)
         payload = json.dumps(asdict(command_packet))
         print("Sending payload:", payload)
@@ -137,25 +137,25 @@ class PiShockClient:
                 print("Send error:", e)
                 return {"IsError": True, "Message": str(e)}
 
-    def get_shocker_commands(self, shocker_names):
-        all_shockers = settings.shockers
+    def get_device_commands(self, device_names):
+        all_devices = settings.devices
         return [
             [
                 name,
-                str(all_shockers[name]["shocker_id"]),
-                all_shockers[name]["share_code"],
-                all_shockers[name]["mode"],
-                all_shockers[name]["intensity"],
-                all_shockers[name]["duration"]
+                str(all_devices[name]["device_id"]),
+                all_devices[name]["share_code"],
+                all_devices[name]["mode"],
+                all_devices[name]["intensity"],
+                all_devices[name]["duration"]
             ]
-            for name in shocker_names
+            for name in device_names
         ]
     
-async def send_shock(shocker_names: list[str], client: PiShockClient):
+async def send_activation(device_names: list[str], client: PiShockClient):
     try:
-        commands = client.get_shocker_commands(shocker_names)
-        resp = await client.send_shocks_now(commands)
-        print("Shock response:", resp)
+        commands = client.get_device_commands(device_names)
+        resp = await client.send_activation_now(commands)
+        print("device response:", resp)
 
         # Reconnect on Redis or protocol/socket errors
         if resp.get("IsError") and (
@@ -166,8 +166,8 @@ async def send_shock(shocker_names: list[str], client: PiShockClient):
             await asyncio.sleep(1)
             await client.connect()
             # Retry once after reconnecting
-            resp = await client.send_shocks_now(commands)
+            resp = await client.send_activation_now(commands)
             print("Retry response:", resp)
 
     except Exception as e:
-        print("Unhandled exception in send_shock:", e)
+        print("Unhandled exception in send_activation:", e)
