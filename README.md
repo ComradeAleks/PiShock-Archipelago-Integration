@@ -106,13 +106,6 @@ traps:
 
 ---
 
-## Important Rules
-
-* Do not use words related to self-harm to describe problems within the archipelago discord server (“PiShock,” is ofcourse still allowed).
-* Use alternative terms like `activation`, `device`, or similar.
-
----
-
 ## Example:
 
 ```yaml
