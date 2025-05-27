@@ -2,6 +2,12 @@
 
 This program allows you to integrate [PiShock](https://pishock.com) devices with the [Archipelago Randomizer](https://archipelago.gg), enabling in-game events like deathlink or item/trap collection to trigger your PiShock devices (such as for vibration, beeping, or general activation).
 
+## Important Rules
+
+* Do not use words related to self-harm to describe problems and/or discussing this program while within the archipelago discord server (“PiShock,” is ofcourse still allowed). Use alternative terms like `activation`, `device`, or similar.
+
+---
+
 ## Setup Instructions
 
 1. **Install the newest release.**
@@ -97,13 +103,6 @@ traps:
 * Device names must match entries in the `devices` section you created earlier.
 * You can assign multiple devices to one trap, or reuse devices across different traps, but you CAN NOT use the same device twice or more in one trap.
 * you can add as many **Check_name**s as you wish, just remember to have them under `traps` and not give two of them the same name
-
----
-
-## Important Rules
-
-* Do not use words related to self-harm to describe problems within the archipelago discord server (“PiShock,” is ofcourse still allowed).
-* Use alternative terms like `activation`, `device`, or similar.
 
 ---
 
