@@ -95,7 +95,7 @@ traps:
 
 * The **Check_name** must exactly match the item check name as it appears in the Archipelago client or game logic.
 * Device names must match entries in the `devices` section you created earlier.
-* You can assign multiple devices to one trap, or reuse devices across different traps, but you CAN NOT use the same device twise or more in one trap.
+* You can assign multiple devices to one trap, or reuse devices across different traps, but you CAN NOT use the same device twice or more in one trap.
 * you can add as many **Check_name**s as you wish, just remember to have them under `traps` and not give two of them the same name
 
 ---

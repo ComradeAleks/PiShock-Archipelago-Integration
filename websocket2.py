@@ -46,22 +46,42 @@ class PiShockClient:
         self._recv_task = None
         print("WebSocket URL:", self.ws_url)
 
-    async def connect(self):
-        print("Connecting to WebSocket...")
-        self.ws = await websockets.connect(
-            self.ws_url,
-            compression=None,
-            ping_interval=None,
-            max_size=None,
-            max_queue=None
-        )
-        print("Connected to WebSocket.")
-        self._recv_task = asyncio.create_task(self._receive_loop())
+    async def connect(self, retry_interval=5):
+            while True:
+                try:
+                    self.ws = await websockets.connect(
+                        self.ws_url,
+                        compression=None,
+                        ping_interval=None,
+                        max_size=None,
+                        max_queue=None
+                    )
+                    self._recv_task = asyncio.create_task(self._receive_loop())
+                    break  # exit loop if connection is successful
+                except Exception as e:
+                    print(f"Connection failed: {e}. Retrying in {retry_interval} seconds...")
+                    await asyncio.sleep(retry_interval)
 
     async def _receive_loop(self):
         try:
             async for message in self.ws:
-                print("Received message:", message)
+                await self.handle_message(message)
+        except Exception as e:
+            print(f"Receive loop error: {e}")
+            await self.reconnect()
+
+    async def reconnect(self):
+        if self._recv_task:
+            self._recv_task.cancel()
+        await self.connect()
+
+    async def handle_message(self, message):
+        print(f"Received: {message}")
+
+    async def _receive_loop(self):
+        try:
+            async for message in self.ws:
+                #print("Received message:", message)
                 await self._recv_queue.put(json.loads(message))
         except websockets.exceptions.ConnectionClosed as e:
             print(f"WebSocket connection closed: {e}")
@@ -123,7 +143,7 @@ class PiShockClient:
     async def send_activation_now(self, commands: list[list[str | int]], repeating: bool = False):
         command_packet = self._build_command_packet(commands, repeating)
         payload = json.dumps(asdict(command_packet))
-        print("Sending payload:", payload)
+        #print("Sending payload:", payload)
 
         async with self._lock:
             try:
@@ -155,19 +175,24 @@ async def send_activation(device_names: list[str], client: PiShockClient):
     try:
         commands = client.get_device_commands(device_names)
         resp = await client.send_activation_now(commands)
-        print("device response:", resp)
+        #print("device response:", resp)
 
         # Reconnect on Redis or protocol/socket errors
         if resp.get("IsError") and (
             "Redis" in resp.get("Message", "") or "Socket terminated" in resp.get("Message", "")
         ):
             print("Connection error detected. Reconnecting WebSocket...")
-            await client.close()
-            await asyncio.sleep(1)
-            await client.connect()
-            # Retry once after reconnecting
-            resp = await client.send_activation_now(commands)
-            print("Retry response:", resp)
+            while resp.get("IsError"):
+                await client.close()
+                await asyncio.sleep(1)
+                await client.connect()
+                await asyncio.sleep(1)
+                resp = await client.send_activation_now(commands)
+                #print("Retry response:", resp)
+            print("Connected to WebSocket.")
+            print("Activation sent successfully")
+        else:
+            print("Activation sent successfully")
 
     except Exception as e:
         print("Unhandled exception in send_activation:", e)
