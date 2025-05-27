@@ -2,38 +2,27 @@ import gzip
 import json
 import uuid
 import json
-import asyncio
 import websockets
-import ItemChecks
-import Pishock_API
+import websocket2
 import settings
-import ast
 
 serverport = str(settings.server_port)
 SERVER_URI     = "wss://archipelago.gg:" + serverport
-SLOT_NAME      = settings.name
-GAME           = settings.Game
+SLOT_NAME      = settings.archipelago_name
+GAME           = settings.game
 ITEMS_HANDLING = 0b001
 SLOT_DATA      = False
 
-if settings.Password != "None":
-    PASSWORD = settings.Password
+if settings.password != "null":
+    PASSWORD = settings.password
 else:
     PASSWORD = ""
-if settings.Deathlink == "True":
+if settings.Deathlink_mode == True:
     TAGS = ["DeathLink"]
-elif settings.Deathlink == "False":
+elif settings.Deathlink_mode == False:
     TAGS = []
 
-
-D_Tracker_names = settings.Deathlink_Tracker_name
-D_mode = settings.Deathlink_mode
-D_intesity = settings.Deathlink_intensity
-D_duration = settings.Deathlink_duration
-D_Share_Codes = settings.DeathLink_Share_code
-D_Share_Codes = ast.literal_eval(D_Share_Codes)
-
-async def archipelago_client():
+async def archipelago_client(pishock_client):
     name_map = {}
     location_map = {}
     seen_locations = set()
@@ -141,7 +130,7 @@ async def archipelago_client():
                             print(f"Recieved item: {item_name} (ID {item_id})")
 
                             # shocking time
-                            ItemChecks.check_for_traps(item_name)
+                            await check_for_traps(item_name, pishock_client)
                             break
 
                 # Auto-checking locations
@@ -151,17 +140,23 @@ async def archipelago_client():
                         seen_locations.add(loc)
                         await ws.send(json.dumps([{"cmd": "CheckLocation", "location": loc}]))
 
-                # DeathLink
-#                elif c == "DeathLink":
-#                    print(f"DeathLink from {cmd['source']!r}: {cmd['cause']!r}")
-#                    Pishock_API.send_vibration(D_Tracker_names, D_Share_Codes, D_mode, D_intesity, D_duration)
+
                 elif c == "Bounced" or c == "DeathLink":
                     d = cmd.get("data", {})
                     print(f"DeathLink from {d.get('source')!r} because of {d.get('cause')!r}")
-                    ItemChecks.send_shock(D_Tracker_names, D_Share_Codes, D_mode, D_intesity, D_duration)
+                    await websocket2.send_shock(settings.Deathlink_Shockers, pishock_client)
                 else:
                     #print(f"Other `{c}`: {cmd!r}")
                     pass
+
+async def check_for_traps(processed_line: str, pishock_client):
+    if not settings.traps or ":" in processed_line:
+        return
+
+    for trap_name, shocker_names in settings.traps.items():
+        if trap_name.lower() in processed_line.lower():
+            await websocket2.send_shock(shocker_names, pishock_client)
+            break
 
 
 #use the connect payload to find the player slot aka your slot, and then return it for the other thingimajig

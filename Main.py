@@ -1,12 +1,14 @@
 import asyncio
-import settings
 import arc_connect
 import win32api
 import win32con
 import atexit
 import sys
+import nest_asyncio
+nest_asyncio.apply()
 
-
+# Store the PiShock client globally
+pishock_client = None
 
 def handle_exit(signum=None, frame=None):
     terminate_archipelago()
@@ -31,13 +33,20 @@ def on_close_event(ctrl_type):
         return True
     return False    
 
-#  close event handler
 win32api.SetConsoleCtrlHandler(on_close_event, True)
 atexit.register(lambda: print("Program exited normally."))
-# Loop for closing the window and running the program
+
+# Establish connection at program start
+async def run():
+    global pishock_client
+    from websocket2 import PiShockClient  # Import here to avoid circular imports
+    pishock_client = PiShockClient()
+    await pishock_client.connect()
+    await arc_connect.archipelago_client(pishock_client)  # pass client into your logic
+
 try:
     while True:
-        asyncio.run(arc_connect.archipelago_client())
+        asyncio.run(run())
 except KeyboardInterrupt:
     print("Caught KeyboardInterrupt. Exiting...")
     sys.exit(0)

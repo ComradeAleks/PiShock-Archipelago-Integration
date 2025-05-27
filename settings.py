@@ -1,76 +1,54 @@
 import os
-import ast
-import re
+import requests
+import yaml
 
-# Path to the .env file
-env_file_path = os.path.join(os.getcwd(), ".env")
-env_vars = {}
-traps_raw_lines = []
+current_dir = os.path.dirname(os.path.abspath(__file__))
+config_path = os.path.join(current_dir, "config.yml")
 
-with open(env_file_path, "r", encoding="utf-8") as f:
-    inside_traps = False
-    for line in f:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
+# Load YAML
+with open(config_path, 'r') as file:
+    config = yaml.safe_load(file)
 
-        if stripped.startswith("traps"):
-            inside_traps = True
-            traps_raw_lines.append(stripped.split("=", 1)[1].strip())
-            continue
+#Archipelago variables:
+server_port         = config["archipelago"]["server_port"]
+archipelago_name    = config["archipelago"]["name"]
+game                = config["archipelago"]["game"]
+password            = config["archipelago"]["password"]
 
-        if inside_traps:
-            traps_raw_lines.append(stripped)
-            # End when we hit the last closing brace
-            if stripped.endswith("}"):
-                inside_traps = False
-            continue
+#PiShock variables:
+pishock_name        = config["pishock"]["username"]
+api_key             = config["pishock"]["api_key"]
+hub_client_id       = config["pishock"]["client_id"]
 
-        if "=" in stripped:
-            key, value = stripped.split("=", 1)
-            value = re.sub(r"#.*", "", value).strip().strip("\"'")
-            env_vars[key.strip()] = value
+#Shockers:
+shockers            = config["shockers"]
 
-# Assign .env values
-pishock_username = str(env_vars.get("pishock_username"))
-API_KEY = str(env_vars.get("API_KEY"))
-server_port = str(env_vars.get("server_port"))
-Game = str(env_vars.get("server_game"))
-name = str(env_vars.get("Archipelago_name"))
-Deathlink = env_vars.get("Deathlink")
-Password = str(env_vars.get("Password"))
+#deathlink variables:
+Deathlink_mode      = config["deathlink"]["activated"]
+Deathlink_Shockers  = config["deathlink"]["shockers"]
 
-Deathlink_Tracker_name = env_vars.get("Deathlink_Tracker_name")
-DeathLink_Share_code = env_vars.get("DeathLink_Share_code")
-Deathlink_mode = env_vars.get("Deathlink_mode")
-Deathlink_intensity = env_vars.get("Deathlink_intensity")
-Deathlink_duration = env_vars.get("Deathlink_duration")
+#Traps n items:
+traps               = config["traps"]
 
+def fetch_user_id() -> str:
+    """
+    Fetches and returns your numeric PiShock UserID by validating
+    the API key and username via the Auth/GetUserIfAPIKeyValid endpoint.
+    """
+    url = (
+        "https://auth.pishock.com/Auth/GetUserIfAPIKeyValid"
+        f"?apikey={api_key}"
+        f"&username={pishock_name}"
+    )
+    resp = requests.get(url)
+    resp.raise_for_status()  # will raise an HTTPError for 4xx/5xx
 
+    data = resp.json()
+    # The JSON payload should include something like {"UserId":"123456", ...}
+    user_id = data.get("UserId") or data.get("userId") or data.get("ID")
+    if not user_id:
+        raise ValueError(f"Unexpected response format: {data!r}")
+    return str(user_id)
 
-# Handle traps dictionary
-traps = {}
-keyword = None
+USERID = fetch_user_id()
 
-if traps_raw_lines:
-    raw_traps_string = "\n".join(traps_raw_lines)
-
-    try:
-        # Clean comments and trailing commas
-        cleaned = re.sub(r"#.*", "", raw_traps_string)
-        cleaned = re.sub(r",\s*([}\]])", r"\1", cleaned)
-        traps_dict = ast.literal_eval(cleaned)
-
-        # Filter traps to make sure they have share_code
-        for trap_name, trackers in traps_dict.items():
-            valid_trackers = {
-                tracker_name: tracker_data
-                for tracker_name, tracker_data in trackers.items()
-                if tracker_data.get("share_code") is not None
-            }
-            if valid_trackers:
-                traps[trap_name] = valid_trackers
-
-        keyword = next(iter(traps), None)
-    except (SyntaxError, ValueError) as e:
-        print(f"Error parsing traps: {e}")
