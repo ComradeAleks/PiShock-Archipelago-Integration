@@ -125,7 +125,7 @@ class PiShockClient:
             )
 
             publish_commands.append(PublishCommand(
-                Target=f"c{settings.hub_client_id}-sops-{share_code}",
+                Target=f"c{settings.hub_client_id}-sops-{share_code}", #maybe -ops for owneer accounts?
                 Body=body
             ))
 

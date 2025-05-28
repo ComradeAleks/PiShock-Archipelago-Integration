@@ -14,6 +14,8 @@ This program allows you to integrate [PiShock](https://pishock.com) devices with
 2. **Open the configuration file** (`config.yaml`) in any text editor (VS Code is recommended for clarity).
 3. **Fill out the necessary fields** as described below.
 
+**Important** All ShareCodes must be Claimed for this to work, claim them by going to your PiShock Controll panel, then Click the three lines in bottom left corner and click Shared Code, place your sharecode within there and it should be good.
+
 ---
 
 ## YAML Configuration Guide
