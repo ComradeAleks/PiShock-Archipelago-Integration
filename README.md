@@ -69,7 +69,7 @@ devices:
 ```
 
 * **Device_name:** Can be anything (no spaces allowed), but the name must match references in `deathlink` and `traps`.
-* **IMPORTANT** you should only replace 'Device_name:' with whatever you want the name to be, example: 'Right_Arm:'. Do not put the name behind the colon **:**
+* **IMPORTANT** you should only replace `Device_name:` with whatever you want the name to be, example: `Right_Arm:`. Do not put the name behind the colon **:**
 * You can add as many devices as needed by repeating the format under `devices:`.
 
 ---
