@@ -49,6 +49,7 @@ class PiShockClient:
     async def connect(self, retry_interval=5):
             while True:
                 try:
+                    print("connecting to websocket...")
                     self.ws = await websockets.connect(
                         self.ws_url,
                         compression=None,
@@ -57,14 +58,15 @@ class PiShockClient:
                         max_queue=None
                     )
                     self._recv_task = asyncio.create_task(self._receive_loop())
+                    print("connected to websocket")
                     break  # exit loop if connection is successful
                 except Exception as e:
                     print(f"Connection failed: {e}. Retrying in {retry_interval} seconds...")
                     await asyncio.sleep(retry_interval)
 
     async def reconnect(self):
-        if self._recv_task:
-            self._recv_task.cancel()
+        await asyncio.sleep(1)
+        print("Attempting to reconnect...")
         await self.connect()
 
     async def handle_message(self, message):
@@ -174,14 +176,13 @@ async def send_activation(device_names: list[str], client: PiShockClient):
         if resp.get("IsError") and (
             "Redis" in resp.get("Message", "") or "Socket terminated" in resp.get("Message", "")
         ):
-            print("Connection error detected. Reconnecting WebSocket...")
+            print("Connection error detected")
             await client.close()
             await asyncio.sleep(1)
             await client.connect()
             await asyncio.sleep(1)
             resp = await client.send_activation_now(commands)
             #print("Retry response:", resp)
-            print("Connected to WebSocket.")
             print("Activation sent successfully")
         else:
             print("Activation sent successfully")

@@ -41,9 +41,7 @@ async def run():
     global pishock_client
     from websocket2 import PiShockClient  # Import here to avoid circular imports
     pishock_client = PiShockClient()
-    print("Connecting to WebSocket...")
     await pishock_client.connect()
-    print("Connected to WebSocket.")
     await arc_connect.archipelago_client(pishock_client)  # pass client into your logic
 
 try:
