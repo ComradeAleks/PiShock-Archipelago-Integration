@@ -35,6 +35,9 @@ Deathlink_devices  = config["deathlink"]["devices"]
 #Traps n items:
 traps               = config["traps"]
 
+#other items:
+otherChecks         = config["OtherChecks"]
+
 def fetch_user_id() -> str:
     """
     Fetches and returns your numeric PiShock UserID by validating

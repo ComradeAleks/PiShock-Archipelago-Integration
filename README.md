@@ -55,14 +55,16 @@ Define each PiShock-compatible device you want to use.
 
 ```yaml
 devices:
-  Device_name:              # Device name can be anything, just dont have spaces
+  Device-1:              
+    name: Device_name       # Device name can be anything you want
     device_id: 12345        # this is the id of your PiShock device
     share_code: ShareCode   # this is the sharecode of The same PiShock device
     mode: 2                 # 0 = activation, 1 = vibrate, 2 = beep
     intensity: 100          # 0–100 (100 is max)
     duration: 1000          # In milliseconds (1000ms = 1 second)
 # just copy the block under for every device you want, but dont forget the spaces.
-  Device_name_2:            
+  Device-2:
+    name: Device_name        
     device_id: 12345        
     share_code: ShareCode   
     mode: 2                 
@@ -70,9 +72,9 @@ devices:
     duration: 1000          
 ```
 
-* **Device_name:** Can be anything (no spaces allowed), but the name must match references in `deathlink` and `traps`.
-* **IMPORTANT** you should only replace `Device_name:` with whatever you want the name to be, example: `Right_Arm:`. Do not put the name behind the colon **:**
+* **name:** Can be anything, but the name must match references in `deathlink`, `traps` and `otherChecks`.
 * You can add as many devices as needed by repeating the format under `devices:`.
+* **Important** when adding more devices, make sure `Device-(number)` dont have the same number with other devices as shown above with `Device-1` and `Device-2`
 
 ---
 
@@ -98,14 +100,37 @@ Traps allow you to bind in-game checks (like item checks or Trap items) to your 
 
 ```yaml
 traps:
-  Check_name_1: [Device_name, Device_name_2]
-  Check_name_2: [Device_name_2]
+  trap-1:
+    name: Item_check-1                    # name of the item check
+    for_self: true                        # true/false if its for you
+    devices: [Device_name, Device_name_2] # devices to trigger
+  trap-2:
+    name: Item_check-2
+    for_self: false
+    devices: [Device_name, Device_name_2]
 ```
 
-* The **Check_name** must exactly match the item check name as it appears in the Archipelago client or game logic.
+* The **name** must exactly match the item check name as it appears in the Archipelago client or game logic.
+* **for_self** should be `true` if its an item that is for yourself, and `false` if the item check is for someone else
 * Device names must match entries in the `devices` section you created earlier.
 * You can assign multiple devices to one trap, or reuse devices across different traps, but you CAN NOT use the same device twice or more in one trap.
-* you can add as many **Check_name**s as you wish, just remember to have them under `traps` and not give two of them the same name
+* you can add as many item checks as you want, but remember to have them under `traps:` and remember that `trap-(number)` needs to have a unique number
+
+---
+
+### `Other checks`
+
+**OtherChecks** lets you set up devices to activate on ALL other item checks that has something to do with you, that isnt already triggered by an existing item check from the traps section. 
+
+```yaml
+OtherChecks:
+  activated: false                        # true/false if activated or not
+  send/receive: all                       # send, receive, all
+  devices: [Device_name, Device_name_2]   # devices to trigger
+```
+* **activated** should be `true` if you want other items to activate the PiShock devices or `false`, if you dont want that.
+* **send/receive** should be `send` if you want only items you send to others to trigger the devices, `receive` if you want only items you receive to trigger the devices, or `all` if you want all items that has something to do with you to trigger the devices.
+* **devices** works like previously where you can not use the same device multiple times, and you need to have the device name be exactly the same as the one you created in that section.
 
 ---
 
@@ -113,7 +138,8 @@ traps:
 
 ```yaml
 devices:
-  Belt:
+  trap-1:
+    name: Belt
     device_id: 12345
     share_code: ABCDEF1234
     mode: 1
@@ -123,7 +149,10 @@ devices:
 
 ```yaml
 traps:
-  BeeTrap: [Belt]
+  trap-1:
+    name: Bee trap
+    for_self: true
+    devices: [Belt]
 ```
 
 ---

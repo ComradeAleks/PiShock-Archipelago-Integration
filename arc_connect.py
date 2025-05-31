@@ -12,6 +12,7 @@ SLOT_NAME      = settings.archipelago_name
 GAME           = settings.game
 ITEMS_HANDLING = 0b001
 SLOT_DATA      = False
+Is_player      = True
 
 if settings.password != "null":
     PASSWORD = settings.password
@@ -114,24 +115,17 @@ async def archipelago_client(pishock_client):
                 
                 # when you get an item
                 if c == "PrintJSON" and cmd.get("type") == "ItemSend":
-                    # 1) checking if the item belongs to you
+                    # 1) checking if the item belongs to you or another player
                     if cmd.get("receiving") != MY_SLOT_ID:
-                        continue
-
+                        Is_player = False
+                    elif cmd.get("receiving") == MY_SLOT_ID:
+                        Is_player = True
+                    #print(cmd)
+                    sender_id = cmd.get("item", {}).get("player")
                     # 2) gets the item_id, from the JSON text field
-                    for entry in cmd.get("data", []):
-                        if entry.get("type") == "item_id":
-                            if entry.get("player") != MY_SLOT_ID:
-                                break
-
-                            # self pickup and item confirmed:
-                            item_id   = int(entry["text"])
-                            item_name = name_map.get(item_id, "<unknown>")
-                            print(f"Recieved item: {item_name} (ID {item_id})")
-
-                            # activation time
-                            await check_for_traps(item_name, pishock_client)
-                            break
+                    if sender_id == MY_SLOT_ID or Is_player == True:
+                        await check_for_items(cmd, name_map, pishock_client, Is_player)
+                    break
 
                 # Auto-checking locations
                 elif c == "RoomUpdate":
@@ -149,15 +143,45 @@ async def archipelago_client(pishock_client):
                     #print(f"Other `{c}`: {cmd!r}")
                     pass
 
-async def check_for_traps(processed_line: str, pishock_client):
-    if not settings.traps or ":" in processed_line:
+async def check_for_items(cmd, name_map, pishock_client, Is_player):
+    for entry in cmd.get("data", []):
+        if entry.get("type") == "item_id":
+            # get item and print it
+            item_id   = int(entry["text"])
+            item_name = name_map.get(item_id, "<unknown>")
+            if Is_player:
+                print(f"Recieved item: {item_name} (ID {item_id})")
+
+            else:
+                print(f"Sendt item: {item_name} (ID {item_id})")
+            # activation time
+            await check_for_traps(item_name, pishock_client, Is_player)
+
+async def check_for_traps(processed_line: str, pishock_client, Is_player):
+    if not settings.traps:
+        print("Cannot find traps within Yaml file")
         return
 
-    for trap_name, device_names in settings.traps.items():
-        if trap_name.lower() in processed_line.lower():
+    for trap in settings.traps.values():
+        trap_name = trap.get("name", "")
+        for_self = trap.get("for_self", True)
+        device_names = trap.get("devices", [])
+        if trap_name.lower() in processed_line.lower() and Is_player == for_self:
             await websocket2.send_activation(device_names, pishock_client)
             break
-
+    else:
+        # Only run if no trap matched
+        other_checks = settings.otherChecks
+        if other_checks.get("activated"):
+            mode = other_checks.get("send/receive", "all").lower()
+            devices = other_checks.get("devices", [])
+            # Is_player == True means received, False means sent
+            if (
+                (mode == "all") or
+                (mode == "send" and not Is_player) or
+                (mode == "receive" and Is_player)
+            ):
+                await websocket2.send_activation(devices, pishock_client)
 
 #use the connect payload to find the player slot aka your slot, and then return it for the other thingimajig
 def get_my_slot(connect_payload, my_name):

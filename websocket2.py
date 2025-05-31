@@ -144,6 +144,7 @@ class PiShockClient:
             try:
                 await self.ws.send(payload)
                 response = await asyncio.wait_for(self._recv_queue.get(), timeout=5.0)
+                print("Activation sent successfully")
                 return response
             except asyncio.TimeoutError:
                 print("Timed out waiting for server response.")
@@ -156,36 +157,22 @@ class PiShockClient:
         all_devices = settings.devices
         return [
             [
-                name,
-                str(all_devices[name]["device_id"]),
-                all_devices[name]["share_code"],
-                all_devices[name]["mode"],
-                all_devices[name]["intensity"],
-                all_devices[name]["duration"]
+                device["name"],
+                device["device_id"],
+                device["share_code"],
+                device["mode"],
+                device["intensity"],
+                device["duration"]
             ]
             for name in device_names
+            for device in all_devices.values()
+            if device.get("name") == name
         ]
     
 async def send_activation(device_names: list[str], client: PiShockClient):
     try:
         commands = client.get_device_commands(device_names)
-        resp = await client.send_activation_now(commands)
+        await client.send_activation_now(commands)
         #print("device response:", resp)
-
-        # Reconnect on Redis or protocol/socket errors
-        if resp.get("IsError") and (
-            "Redis" in resp.get("Message", "") or "Socket terminated" in resp.get("Message", "")
-        ):
-            print("Connection error detected")
-            await client.close()
-            await asyncio.sleep(1)
-            await client.connect()
-            await asyncio.sleep(1)
-            resp = await client.send_activation_now(commands)
-            #print("Retry response:", resp)
-            print("Activation sent successfully")
-        else:
-            print("Activation sent successfully")
-
     except Exception as e:
         print("Unhandled exception in send_activation:", e)
