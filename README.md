@@ -78,19 +78,24 @@ devices:
 
 ---
 
-### `deathlink`
+### `deathlink/trapLink`
 
-Configure which devices activate when a *DeathLink* event occurs (shared player deaths).
+Configure which devices activate when a *DeathLink* or/and *TrapLink* event occurs (shared player deaths/shared player traps).
 
 ```yaml
 deathlink:
   activated: false               
   devices: [Device_name, Device_name_2]
 ```
+```yaml
+trapLink:
+  activated: false               
+  devices: [Device_name, Device_name_2]
+```
 
-* Set `activated` to `true` to enable DeathLink or `false` to dsable it.
+* Set `activated` to `true` to enable DeathLink/trapLink or `false` to dsable it.
 * List all device names you want to activate (from the `devices` you created)  with a comma and space `, ` inbetween.
-* **Important:** Do not use the same device multiple times.
+* **Important:** Do not use the same device multiple times on the same link.
 
 ---
 

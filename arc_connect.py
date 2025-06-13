@@ -18,9 +18,13 @@ if settings.password != "null":
     PASSWORD = settings.password
 else:
     PASSWORD = ""
-if settings.Deathlink_mode == True:
+if settings.Deathlink_mode == True and settings.trapLink_mode == True:
+    TAGS = ["DeathLink", "TrapLink"]
+elif settings.Deathlink_mode == True and settings.trapLink_mode == False:
     TAGS = ["DeathLink"]
-elif settings.Deathlink_mode == False:
+elif settings.Deathlink_mode == False and settings.trapLink_mode == True:
+    TAGS = ["TrapLink"]
+elif settings.Deathlink_mode == False and settings.trapLink_mode == False:
     TAGS = []
 
 async def archipelago_client(pishock_client):
@@ -113,8 +117,13 @@ async def archipelago_client(pishock_client):
             for cmd in packet:
                 c = cmd.get("cmd")
                 
+                if c == "Bounced" or c == "TrapLink":
+                    d = cmd.get("data", {})
+                    print(f"TrapLink: {d.get('source')!r} sendt a {d.get('trap_name')!r}")
+                    await websocket2.send_activation(settings.trapLink_devices, pishock_client)
+
                 # when you get an item
-                if c == "PrintJSON" and cmd.get("type") == "ItemSend":
+                elif c == "PrintJSON" and cmd.get("type") == "ItemSend":
                     # 1) checking if the item belongs to you or another player
                     if cmd.get("receiving") != MY_SLOT_ID:
                         Is_player = False
@@ -134,11 +143,11 @@ async def archipelago_client(pishock_client):
                         seen_locations.add(loc)
                         await ws.send(json.dumps([{"cmd": "CheckLocation", "location": loc}]))
 
-
                 elif c == "Bounced" or c == "DeathLink":
                     d = cmd.get("data", {})
                     print(f"DeathLink from {d.get('source')!r} because of {d.get('cause')!r}")
                     await websocket2.send_activation(settings.Deathlink_devices, pishock_client)
+
                 else:
                     #print(f"Other `{c}`: {cmd!r}")
                     pass

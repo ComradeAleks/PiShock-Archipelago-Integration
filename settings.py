@@ -26,11 +26,15 @@ api_key             = config["pishock"]["api_key"]
 hub_client_id       = config["pishock"]["client_id"]
 
 #devices:
-devices            = config["devices"]
+devices             = config["devices"]
 
 #deathlink variables:
 Deathlink_mode      = config["deathlink"]["activated"]
-Deathlink_devices  = config["deathlink"]["devices"]
+Deathlink_devices   = config["deathlink"]["devices"]
+
+#trapLink variables:
+trapLink_mode       = config["trapLink"]["activated"]
+trapLink_devices    = config["trapLink"]["devices"]
 
 #Traps n items:
 traps               = config["traps"]
