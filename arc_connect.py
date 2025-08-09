@@ -116,11 +116,19 @@ async def archipelago_client(pishock_client):
             packet = json.loads(frame)
             for cmd in packet:
                 c = cmd.get("cmd")
-                
-                if c == "Bounced" or c == "TrapLink":
+                if c == "Bounced" or c == "TrapLink" or c == "DeathLink":
+                    t = cmd.get("tags", [])
                     d = cmd.get("data", {})
-                    print(f"TrapLink: {d.get('source')!r} sendt a {d.get('trap_name')!r}")
-                    await websocket2.send_activation(settings.trapLink_devices, pishock_client)
+                    #print(cmd)
+                    #print(t)
+                    #print(d)
+                    if "TrapLink" in t or c == "TrapLink":
+                        print(f"TrapLink: {d.get('source')!r} sent a {d.get('trap_name')!r}")
+                        await websocket2.send_activation(settings.trapLink_devices, pishock_client)
+                    if "DeathLink" in t or c == "DeathLink":
+                        print(f"DeathLink from {d.get('source')!r} because of {d.get('cause')!r}")
+                        await websocket2.send_activation(settings.Deathlink_devices, pishock_client)
+                
 
                 # when you get an item
                 elif c == "PrintJSON" and cmd.get("type") == "ItemSend":
@@ -142,11 +150,6 @@ async def archipelago_client(pishock_client):
                     for loc in new_locs:
                         seen_locations.add(loc)
                         await ws.send(json.dumps([{"cmd": "CheckLocation", "location": loc}]))
-
-                elif c == "Bounced" or c == "DeathLink":
-                    d = cmd.get("data", {})
-                    print(f"DeathLink from {d.get('source')!r} because of {d.get('cause')!r}")
-                    await websocket2.send_activation(settings.Deathlink_devices, pishock_client)
 
                 else:
                     #print(f"Other `{c}`: {cmd!r}")
