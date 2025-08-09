@@ -157,7 +157,7 @@ class PiShockClient:
         all_devices = settings.devices
         return [
             [
-                device["name"],
+                device_name,
                 device["device_id"],
                 device["share_code"],
                 device["mode"],
@@ -165,8 +165,8 @@ class PiShockClient:
                 device["duration"]
             ]
             for name in device_names
-            for device in all_devices.values()
-            if device.get("name") == name
+            for device_name, device in all_devices.items()
+            if device_name == name
         ]
     
 async def send_activation(device_names: list[str], client: PiShockClient):

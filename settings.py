@@ -8,39 +8,68 @@ if getattr(sys, 'frozen', False):
 else:
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
-config_path = os.path.join(current_dir, "config.yaml")
+if len(sys.argv) > 1:
+    archipelago_config_path = sys.argv[1]
+else:
+    archipelago_config_path = os.path.join(current_dir, "archipelago_config.yaml")
+    
+pishock_config_path = os.path.join(current_dir, "pishock_config.yaml")
 
 # Load YAML
-with open(config_path, 'r') as file:
-    config = yaml.safe_load(file)
-
-#Archipelago variables:
-server_port         = config["archipelago"]["room_code"]
-archipelago_name    = config["archipelago"]["name"]
-game                = config["archipelago"]["game"]
-password            = config["archipelago"]["password"]
-
+with open(pishock_config_path, 'r') as file:
+    pishock_config = yaml.safe_load(file)
+    
+with open(archipelago_config_path, 'r') as file:
+    archipelago_config = yaml.safe_load(file)
+    
+## PiShock configuration data
 #PiShock variables:
-pishock_name        = config["pishock"]["username"]
-api_key             = config["pishock"]["api_key"]
-hub_client_id       = config["pishock"]["client_id"]
+pishock_name        = pishock_config["pishock"]["username"]
+api_key             = pishock_config["pishock"]["api_key"]
+hub_client_id       = pishock_config["pishock"]["client_id"]
 
 #devices:
-devices             = config["devices"]
+devices             = pishock_config.get("devices", {})
+device_profiles     = pishock_config.get("device_profiles", {})
+activation_profiles = pishock_config.get("activation_profiles", {})
+
+if not devices and device_profiles and activation_profiles:
+    # Build all possible device combinations from device_profiles and activation profiles, one time.
+    for device_key, device_value in device_profiles.items():
+        for activation_key, activation_value in activation_profiles.items():
+            device_name = f"{device_key}{activation_key}"
+            devices[device_name] = {
+                "device_id": device_value["device_id"],
+                "share_code": device_value["share_code"],
+                "mode": activation_value["mode"],
+                "intensity": activation_value["intensity"],
+                "duration": activation_value["duration"]
+            }
+
+
+
+## Archipelago configuration data
+#Archipelago variables:
+server_port         = archipelago_config["archipelago"]["room_code"]
+archipelago_name    = archipelago_config["archipelago"]["name"]
+game                = archipelago_config["archipelago"]["game"]
+password            = archipelago_config["archipelago"].get("password", None)
 
 #deathlink variables:
-Deathlink_mode      = config["deathlink"]["activated"]
-Deathlink_devices   = config["deathlink"]["devices"]
+DeathLink           = archipelago_config.get("deathlink", {"activated": False, "devices": []})
+Deathlink_mode      = DeathLink.get("activated", False)
+Deathlink_devices   = DeathLink.get("devices", [])
 
 #trapLink variables:
-trapLink_mode       = config["trapLink"]["activated"]
-trapLink_devices    = config["trapLink"]["devices"]
+TrapLink            = archipelago_config.get("trapLink", {"activated": False, "devices": []})
+trapLink_mode       = TrapLink.get("activated", False)
+trapLink_devices    = TrapLink.get("devices", [])
 
 #Traps n items:
-traps               = config["traps"]
+traps               = archipelago_config.get("traps", {})
 
 #other items:
-otherChecks         = config["OtherChecks"]
+otherChecks         = archipelago_config.get("OtherChecks", {"activated": False, "send/receive": "all", "devices": []})
 
 def fetch_user_id() -> str:
     """

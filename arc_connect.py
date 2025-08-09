@@ -116,11 +116,19 @@ async def archipelago_client(pishock_client):
             packet = json.loads(frame)
             for cmd in packet:
                 c = cmd.get("cmd")
-                
-                if c == "Bounced" or c == "TrapLink":
+                if c == "Bounced" or c == "TrapLink" or c == "DeathLink":
+                    t = cmd.get("tags", [])
                     d = cmd.get("data", {})
-                    print(f"TrapLink: {d.get('source')!r} sendt a {d.get('trap_name')!r}")
-                    await websocket2.send_activation(settings.trapLink_devices, pishock_client)
+                    #print(cmd)
+                    #print(t)
+                    #print(d)
+                    if "TrapLink" in t or c == "TrapLink":
+                        print(f"TrapLink: {d.get('source')!r} sent a {d.get('trap_name')!r}")
+                        await websocket2.send_activation(settings.trapLink_devices, pishock_client)
+                    if "DeathLink" in t or c == "DeathLink":
+                        print(f"DeathLink from {d.get('source')!r} because of {d.get('cause')!r}")
+                        await websocket2.send_activation(settings.Deathlink_devices, pishock_client)
+                
 
                 # when you get an item
                 elif c == "PrintJSON" and cmd.get("type") == "ItemSend":
@@ -143,11 +151,6 @@ async def archipelago_client(pishock_client):
                         seen_locations.add(loc)
                         await ws.send(json.dumps([{"cmd": "CheckLocation", "location": loc}]))
 
-                elif c == "Bounced" or c == "DeathLink":
-                    d = cmd.get("data", {})
-                    print(f"DeathLink from {d.get('source')!r} because of {d.get('cause')!r}")
-                    await websocket2.send_activation(settings.Deathlink_devices, pishock_client)
-
                 else:
                     #print(f"Other `{c}`: {cmd!r}")
                     pass
@@ -162,23 +165,32 @@ async def check_for_items(cmd, name_map, pishock_client, Is_player):
                 print(f"Recieved item: {item_name} (ID {item_id})")
 
             else:
-                print(f"Sendt item: {item_name} (ID {item_id})")
+                print(f"Sent item: {item_name} (ID {item_id})")
             # activation time
             await check_for_traps(item_name, pishock_client, Is_player)
 
 async def check_for_traps(processed_line: str, pishock_client, Is_player):
-    if not settings.traps:
+    if not settings.traps and not settings.otherChecks.get("activated"):
         print("Cannot find traps within Yaml file")
         return
 
-    for trap in settings.traps.values():
-        trap_name = trap.get("name", "")
-        for_self = trap.get("for_self", True)
-        device_names = trap.get("devices", [])
-        if trap_name.lower() in processed_line.lower() and Is_player == for_self:
-            await websocket2.send_activation(device_names, pishock_client)
-            break
-    else:
+    matched = False
+    if settings.traps:
+        for trap in settings.traps.values():
+            trap_names = {x.lower() for x in trap.get("names", set())}
+            if not trap_names:
+                trap_name = trap.get("name", "").lower()
+                if not trap_name:
+                    continue
+                trap_names.add(trap_name)
+            
+            for_self = trap.get("for_self", True)
+            device_names = trap.get("devices", [])
+            if any([x in processed_line.lower() for x in trap_names]) and Is_player == for_self:
+                matched = True
+                await websocket2.send_activation(device_names, pishock_client)
+                break
+    if not matched:
         # Only run if no trap matched
         other_checks = settings.otherChecks
         if other_checks.get("activated"):
