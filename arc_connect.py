@@ -170,18 +170,27 @@ async def check_for_items(cmd, name_map, pishock_client, Is_player):
             await check_for_traps(item_name, pishock_client, Is_player)
 
 async def check_for_traps(processed_line: str, pishock_client, Is_player):
-    if not settings.traps:
+    if not settings.traps and not settings.otherChecks.get("activated"):
         print("Cannot find traps within Yaml file")
         return
 
-    for trap in settings.traps.values():
-        trap_name = trap.get("name", "")
-        for_self = trap.get("for_self", True)
-        device_names = trap.get("devices", [])
-        if trap_name.lower() in processed_line.lower() and Is_player == for_self:
-            await websocket2.send_activation(device_names, pishock_client)
-            break
-    else:
+    matched = False
+    if settings.traps:
+        for trap in settings.traps.values():
+            trap_names = {x.lower() for x in trap.get("names", set())}
+            if not trap_names:
+                trap_name = trap.get("name", "").lower()
+                if not trap_name:
+                    continue
+                trap_names.add(trap_name)
+            
+            for_self = trap.get("for_self", True)
+            device_names = trap.get("devices", [])
+            if any([x in processed_line.lower() for x in trap_names]) and Is_player == for_self:
+                matched = True
+                await websocket2.send_activation(device_names, pishock_client)
+                break
+    if not matched:
         # Only run if no trap matched
         other_checks = settings.otherChecks
         if other_checks.get("activated"):
