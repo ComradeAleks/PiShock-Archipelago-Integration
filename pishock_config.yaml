@@ -1,0 +1,25 @@
+# This is the configuration file for the program.
+# The guide is on Github under Readme
+# things with # infront is just a comment
+
+# PiShock important variables (change only the values after the colon :)
+pishock:
+  username: PishockName
+  api_key: API-Key
+  client_id: 12345
+
+# PiShock devices:
+device_profiles:
+  Device_1:
+    device_id: 12345
+    share_code: ShareCode
+    
+activation_profiles:
+  Activation_1:
+    mode: 0
+    intensity: 100
+    duration: 1000
+
+# When specifying your devices in archipelago_config.yaml, 
+# you combine the desired device with the desired activation profile like so:
+# devices: [Device_1Activation_1, Device_2Activation_1], etc...
