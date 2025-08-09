@@ -8,7 +8,7 @@ pishock:
   api_key: API-Key
   client_id: 12345
 
-# PiShock devices:
+# PiShock device and activation profiles:
 device_profiles:
   Device_1:
     device_id: 12345
