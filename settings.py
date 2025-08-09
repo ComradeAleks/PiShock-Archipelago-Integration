@@ -36,21 +36,23 @@ devices             = pishock_config["devices"]
 server_port         = archipelago_config["archipelago"]["room_code"]
 archipelago_name    = archipelago_config["archipelago"]["name"]
 game                = archipelago_config["archipelago"]["game"]
-password            = archipelago_config["archipelago"]["password"]
+password            = archipelago_config["archipelago"].get("password", None)
 
 #deathlink variables:
-Deathlink_mode      = archipelago_config["deathlink"]["activated"]
-Deathlink_devices   = archipelago_config["deathlink"]["devices"]
+DeathLink           = archipelago_config.get("deathlink", {"activated": False, "devices": []})
+Deathlink_mode      = DeathLink.get("activated", False)
+Deathlink_devices   = DeathLink.get("devices", [])
 
 #trapLink variables:
-trapLink_mode       = archipelago_config["trapLink"]["activated"]
-trapLink_devices    = archipelago_config["trapLink"]["devices"]
+TrapLink            = archipelago_config.get("trapLink", {"activated": False, "devices": []})
+trapLink_mode       = TrapLink.get("activated", False)
+trapLink_devices    = TrapLink.get("devices", [])
 
 #Traps n items:
-traps               = archipelago_config["traps"]
+traps               = archipelago_config.get("traps", {})
 
 #other items:
-otherChecks         = archipelago_config["OtherChecks"]
+otherChecks         = archipelago_config.get("OtherChecks", {"activated": False, "send/receive": "all", "devices": []})
 
 def fetch_user_id() -> str:
     """
