@@ -29,7 +29,24 @@ api_key             = pishock_config["pishock"]["api_key"]
 hub_client_id       = pishock_config["pishock"]["client_id"]
 
 #devices:
-devices             = pishock_config["devices"]
+devices             = pishock_config.get("devices", {})
+device_profiles     = pishock_config.get("device_profiles", {})
+activation_profiles = pishock_config.get("activation_profiles", {})
+
+if not devices and device_profiles and activation_profiles:
+    # Build all possible device combinations from device_profiles and activation profiles, one time.
+    for device_key, device_value in device_profiles.items():
+        for activation_key, activation_value in activation_profiles.items():
+            device_name = f"{device_key}{activation_key}"
+            devices[device_name] = {
+                "device_id": device_value["device_id"],
+                "share_code": device_value["share_code"],
+                "mode": activation_value["mode"],
+                "intensity": activation_value["intensity"],
+                "duration": activation_value["duration"]
+            }
+
+
 
 ## Archipelago configuration data
 #Archipelago variables:
