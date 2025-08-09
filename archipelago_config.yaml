@@ -2,6 +2,15 @@
 # The guide is on Github under Readme
 # things with # infront is just a comment
 
+# You can optionally specify custom activation profiles here. 
+# Any you specify here that have the same name as in pishock_config.yaml
+# will take precedence over the ones in pishock_config.yaml.
+activation_profiles:
+  Activation_1:
+    mode: 0
+    intensity: 100
+    duration: 1000
+
 # archipelago important variables (change only the values after the colon :)
 archipelago:
   room_code: 12345

@@ -32,7 +32,9 @@ hub_client_id       = pishock_config["pishock"]["client_id"]
 devices             = pishock_config.get("devices", {})
 device_profiles     = pishock_config.get("device_profiles", {})
 activation_profiles = pishock_config.get("activation_profiles", {})
+ap_activations      = archipelago_config.get("activation_profiles", {})
 
+activation_profiles.update(ap_activations)
 if not devices and device_profiles and activation_profiles:
     # Build all possible device combinations from device_profiles and activation profiles, one time.
     for device_key, device_value in device_profiles.items():

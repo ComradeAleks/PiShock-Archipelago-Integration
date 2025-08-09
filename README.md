@@ -79,6 +79,7 @@ activation_profiles:
 * The names you use for devices listed in `deathlink`, `traps` and `otherChecks` is a combination of the device profile name and the activation profile name, like so. `Device_1Beep`, `Device_1Vibrate`, `Device_2Beep`, `Device_2Vibrate` .
 * You can add as many device and activation profiles as needed by repeating the format under `device_profiles:` and `activation_profiles:`.
 * **Important** when adding more device and activation profiles, make sure the names of each of the profiles are unique, such as `Device_1`, `Device_2`, `Beep`, `Vibrate`
+* You can specify custom `activation_profiles:` in your achipelago_config.yaml. If there are any activation profiles named the same in both `pishock_config.yaml` and `archipelago_config.yaml`, the one in `archipelago_config.yaml` takes precedence.
 
 ---
 
