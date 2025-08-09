@@ -162,7 +162,7 @@ async def check_for_items(cmd, name_map, pishock_client, Is_player):
                 print(f"Recieved item: {item_name} (ID {item_id})")
 
             else:
-                print(f"Sendt item: {item_name} (ID {item_id})")
+                print(f"Sent item: {item_name} (ID {item_id})")
             # activation time
             await check_for_traps(item_name, pishock_client, Is_player)
 
