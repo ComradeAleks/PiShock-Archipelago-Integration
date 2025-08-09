@@ -8,39 +8,49 @@ if getattr(sys, 'frozen', False):
 else:
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
-config_path = os.path.join(current_dir, "config.yaml")
+if len(sys.argv) > 1:
+    archipelago_config_path = sys.argv[1]
+else:
+    archipelago_config_path = os.path.join(current_dir, "archipelago_config.yaml")
+    
+pishock_config_path = os.path.join(current_dir, "pishock_config.yaml")
 
 # Load YAML
-with open(config_path, 'r') as file:
-    config = yaml.safe_load(file)
-
-#Archipelago variables:
-server_port         = config["archipelago"]["room_code"]
-archipelago_name    = config["archipelago"]["name"]
-game                = config["archipelago"]["game"]
-password            = config["archipelago"]["password"]
-
+with open(pishock_config_path, 'r') as file:
+    pishock_config = yaml.safe_load(file)
+    
+with open(archipelago_config_path, 'r') as file:
+    archipelago_config = yaml.safe_load(file)
+    
+## PiShock configuration data
 #PiShock variables:
-pishock_name        = config["pishock"]["username"]
-api_key             = config["pishock"]["api_key"]
-hub_client_id       = config["pishock"]["client_id"]
+pishock_name        = pishock_config["pishock"]["username"]
+api_key             = pishock_config["pishock"]["api_key"]
+hub_client_id       = pishock_config["pishock"]["client_id"]
 
 #devices:
-devices             = config["devices"]
+devices             = pishock_config["devices"]
+
+## Archipelago configuration data
+#Archipelago variables:
+server_port         = archipelago_config["archipelago"]["room_code"]
+archipelago_name    = archipelago_config["archipelago"]["name"]
+game                = archipelago_config["archipelago"]["game"]
+password            = archipelago_config["archipelago"]["password"]
 
 #deathlink variables:
-Deathlink_mode      = config["deathlink"]["activated"]
-Deathlink_devices   = config["deathlink"]["devices"]
+Deathlink_mode      = archipelago_config["deathlink"]["activated"]
+Deathlink_devices   = archipelago_config["deathlink"]["devices"]
 
 #trapLink variables:
-trapLink_mode       = config["trapLink"]["activated"]
-trapLink_devices    = config["trapLink"]["devices"]
+trapLink_mode       = archipelago_config["trapLink"]["activated"]
+trapLink_devices    = archipelago_config["trapLink"]["devices"]
 
 #Traps n items:
-traps               = config["traps"]
+traps               = archipelago_config["traps"]
 
 #other items:
-otherChecks         = config["OtherChecks"]
+otherChecks         = archipelago_config["OtherChecks"]
 
 def fetch_user_id() -> str:
     """
