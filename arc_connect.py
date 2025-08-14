@@ -22,14 +22,14 @@ if settings.password != "null":
     PASSWORD = settings.password
 else:
     PASSWORD = ""
-if settings.Deathlink_mode == True and settings.trapLink_mode == True:
-    TAGS = ["DeathLink", "TrapLink"]
-elif settings.Deathlink_mode == True and settings.trapLink_mode == False:
-    TAGS = ["DeathLink"]
-elif settings.Deathlink_mode == False and settings.trapLink_mode == True:
-    TAGS = ["TrapLink"]
-elif settings.Deathlink_mode == False and settings.trapLink_mode == False:
-    TAGS = []
+    
+TAGS = ["Tracker", "PiShock"]
+if settings.Deathlink_mode:
+    TAGS.append("DeathLink")
+if settings.trapLink_mode:
+    TAGS.append("TrapLink")
+    
+    
 
 async def archipelago_client(pishock_client):
     name_map = {}
