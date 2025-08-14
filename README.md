@@ -26,6 +26,7 @@ Configure your connection to the Archipelago multiworld server. (`archipelago_co
 
 ```yaml
 archipelago:
+  server: archipelago.gg    # The server you are connecting to. you must specify ws:// if connecting to a non-secure server
   room_code: 1235           # Your Archipelago room code
   name: YourName            # Your player name in the Archipelago session
   game: YourGame            # The game you're playing in Archipelago

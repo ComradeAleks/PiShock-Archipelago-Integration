@@ -13,6 +13,7 @@ activation_profiles:
 
 # archipelago important variables (change only the values after the colon :)
 archipelago:
+  server: archipelago.gg
   room_code: 12345
   name: ArchipelagoName
   game: GameName

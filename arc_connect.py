@@ -6,8 +6,12 @@ import websockets
 import websocket2
 import settings
 
-serverport = str(settings.server_port)
-SERVER_URI     = "wss://archipelago.gg:" + serverport
+
+if settings.server_address.startswith("ws://"):
+    SERVER_URI = f"{settings.server_address}:{settings.server_port}"
+else:
+    SERVER_URI     = f"wss://{settings.server_address}:{settings.server_port}" 
+
 SLOT_NAME      = settings.archipelago_name
 GAME           = settings.game
 ITEMS_HANDLING = 0b001
