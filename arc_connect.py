@@ -68,6 +68,7 @@ async def archipelago_client(pishock_client, connected_successfully):
     name_map = {}
     location_map = {}
     seen_locations = set()
+    items_not_for_self = any([not trap.get("for_self", True) for trap in settings.traps.values()])
 
     print(f"Connecting to {SERVER_URI}")
     async with websockets.connect(SERVER_URI, max_size=None) as ws:
@@ -189,18 +190,20 @@ async def archipelago_client(pishock_client, connected_successfully):
                 
 
                 # when you get an item
-                elif c == "PrintJSON" and cmd.get("type") == "ItemSend":
+                elif c == "PrintJSON" and cmd.get("type") in ["ItemSend", "ItemCheat"]:
                     # 1) checking if the item belongs to you or another player
-                    if cmd.get("receiving") != MY_SLOT_ID:
-                        Is_player = False
-                    elif cmd.get("receiving") == MY_SLOT_ID:
-                        Is_player = True
+                    Is_player = cmd.get("receiving") in MY_SLOT_IDS
                     #print(cmd)
                     sender_id = cmd.get("item", {}).get("player")
                     # 2) gets the item_id, from the JSON text field
-                    if sender_id == MY_SLOT_ID or Is_player == True:
+                    if sender_id in MY_SLOT_IDS or items_not_for_self:
+                        print("checking for item")
                         await check_for_items(cmd, name_map, pishock_client, Is_player)
                     break
+                    
+                elif c == "ReceivedItems":
+                    print("checking for item")
+                    await check_for_items(cmd, name_map, pishock_client, True)
 
                 # Auto-checking locations
                 elif c == "RoomUpdate":
@@ -212,20 +215,31 @@ async def archipelago_client(pishock_client, connected_successfully):
                 else:
                     #print(f"Other `{c}`: {cmd!r}")
                     pass
+            
+  
 
 async def check_for_items(cmd, name_map, pishock_client, Is_player):
-    for entry in cmd.get("data", []):
-        if entry.get("type") == "item_id":
-            # get item and print it
-            item_id   = int(entry["text"])
+    if cmd.get("cmd") == "ReceivedItems":
+        # Received items packet.  These are 100% for the player.  Ignore PrintJSON packets that reveal items for the player.
+        items = cmd.get("items")
+        for item in items:
+            item_id = item.get("item")
             item_name = name_map.get(item_id, "<unknown>")
-            if Is_player:
-                print(f"Recieved item: {item_name} (ID {item_id})")
-
-            else:
-                print(f"Sent item: {item_name} (ID {item_id})")
-            # activation time
+            print(f"Recieved item: {item_name} (ID {item_id})")
             await check_for_traps(item_name, pishock_client, Is_player)
+            
+    if cmd.get("cmd") == "PrintJSON":
+        for entry in cmd.get("data", []):
+            if entry.get("type") == "item_id":
+                # get item and print it
+                item_id   = int(entry["text"])
+                item_name = name_map.get(item_id, "<unknown>")
+                if Is_player:
+                    print(f"Recieved item: {item_name} (ID {item_id})")
+                else:
+                    print(f"Sent item: {item_name} (ID {item_id})")
+                # activation time
+                await check_for_traps(item_name, pishock_client, Is_player)
 
 async def check_for_traps(processed_line: str, pishock_client, Is_player):
     if not settings.traps and not settings.otherChecks.get("activated"):
