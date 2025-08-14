@@ -16,7 +16,6 @@ archipelago:
   server: archipelago.gg
   room_code: 12345
   name: ArchipelagoName
-  game: GameName
   password: null
 
 # Deathlink settings

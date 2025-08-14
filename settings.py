@@ -52,9 +52,9 @@ if not devices and device_profiles and activation_profiles:
 
 ## Archipelago configuration data
 #Archipelago variables:
-server_port         = archipelago_config["archipelago"]["room_code"]
+server_address      = archipelago_config["archipelago"].get("server", "archipelago.gg")
+server_port         = archipelago_config["archipelago"].get("room_code", 38281)
 archipelago_name    = archipelago_config["archipelago"]["name"]
-game                = archipelago_config["archipelago"]["game"]
 password            = archipelago_config["archipelago"].get("password", None)
 
 #deathlink variables:

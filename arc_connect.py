@@ -5,7 +5,7 @@ import json
 import websockets
 import websocket2
 import settings
-
+import asyncio
 
 if settings.server_address.startswith("ws://"):
     SERVER_URI = f"{settings.server_address}:{settings.server_port}"
@@ -13,12 +13,11 @@ else:
     SERVER_URI     = f"wss://{settings.server_address}:{settings.server_port}" 
 
 SLOT_NAME      = settings.archipelago_name
-GAME           = settings.game
 ITEMS_HANDLING = 0b001
 SLOT_DATA      = False
 Is_player      = True
 
-if settings.password != "null":
+if  settings.password and settings.password != "null":
     PASSWORD = settings.password
 else:
     PASSWORD = ""
@@ -30,12 +29,47 @@ if settings.trapLink_mode:
     TAGS.append("TrapLink")
     
     
+class ArchipelagoConnectionRefused(Exception):
+    def __init__(self, message, errors):
+        super().__init__(message)
+        self.errors = errors
+        
+    def __str__(self):
+        base_msg = super().__str__()
+        return f"{base_msg}: The connection was refused because of the following errors: {', '.join(self.errors)}" 
 
-async def archipelago_client(pishock_client):
+
+async def prompt_slot_async():
+    user_input = await asyncio.to_thread(input, "Enter slot/username (Enter to cancel): ")
+    return user_input.strip() or None
+
+async def prompt_password_async():
+    user_input = await asyncio.to_thread(input, "Enter password (Enter to cancel): ")
+    return user_input.strip() or None
+
+
+def classify_refusal(errors: list[str]):
+    """
+    Return 'password' or 'slot' or 'both' if the ONLY error is InvalidPassword/InvalidSlot.
+    Otherwise None (treat as fatal).
+    """
+    s = set(errors or [])
+    if s == {"InvalidPassword"}:
+        return "password"
+    if s == {"InvalidSlot"}:
+        return "slot"
+    if s == {"InvalidSlot", "InvalidPassword"}:
+        return "both"
+    return None
+
+async def archipelago_client(pishock_client, connected_successfully):
+    slot_name = SLOT_NAME
+    password = PASSWORD
     name_map = {}
     location_map = {}
     seen_locations = set()
 
+    print(f"Connecting to {SERVER_URI}")
     async with websockets.connect(SERVER_URI, max_size=None) as ws:
         # 1) Initial RoomInfo
         raw = await ws.recv()
@@ -47,12 +81,52 @@ async def archipelago_client(pishock_client):
         if room_info is None:
             raise RuntimeError("Did not receive RoomInfo from server")
         #print("RoomInfo:", room_info)
+        connected_successfully.append(True)
 
         # 2) Build dynamic games list for DataPackage
         games_field = room_info.get("games") or room_info.get("Games")
         server_games = list(games_field.keys()) if isinstance(games_field, dict) else games_field or []
+        
+        MY_SLOT_IDS = -1
+        while MY_SLOT_IDS == -1:
+            # 3) Send Client Connection 
+            await ws.send(json.dumps([{
+                "cmd":            "Connect",
+                "name":           slot_name,
+                "password":       password,
+                "game":           None,     # Game is fetched from slot_info after presenting as a Tracker
+                "uuid":           str(uuid.uuid4()),
+                "version":        {"major": 0, "minor": 6, "build": 1, "class": "Version"},
+                "items_handling": ITEMS_HANDLING,
+                "tags":           TAGS,
+                "slot_data":      SLOT_DATA
+            }]))
+            print("Connecting to server...")
 
-        # 3) Request the DataPackage for those games or just do the whole shlabang if that dont work for some reason
+            # 4) Connection confirmation
+            connected = json.loads(await ws.recv())
+            #print("Connected:", connected)
+            try:
+                MY_SLOT_IDS, game = get_my_slots(connected)
+            except ArchipelagoConnectionRefused as ex:
+                kind = classify_refusal(ex.errors)
+                if kind is None:
+                    raise
+                
+                if kind in ("slot", "both"):
+                    slot_name = await prompt_slot_async()
+                    if not slot_name:
+                        raise
+
+                if kind in ("password", "both"):
+                    password = await prompt_password_async()
+                    if not password:
+                        raise
+                
+        if MY_SLOT_IDS is None:
+            raise Exception(f"Unknown connection error: {connected}")
+
+        # 5) Request the DataPackage for those games or just do the whole shlabang if that dont work for some reason
         dp_version = room_info.get("datapackage_version") or room_info.get("data_package_version") or 1
         dp_req = {"cmd": "GetDataPackage", "version": dp_version}
         if server_games:
@@ -62,13 +136,13 @@ async def archipelago_client(pishock_client):
             print("Fetching full DataPackage (all games)")
         await ws.send(json.dumps([dp_req]))
 
-        # 4) Process DataPackage to populate name_map and location_map
+        # 6) Process DataPackage to populate name_map and location_map
         while True:
             frame = await ws.recv()
             if isinstance(frame, (bytes, bytearray)):
                 try:
                     data = gzip.decompress(frame).decode()
-                    pkg = json.loads(data).get('games', {}).get(GAME, {})
+                    pkg = json.loads(data).get('games', {}).get(game, {})
                 except Exception:
                     continue
             else:
@@ -76,7 +150,7 @@ async def archipelago_client(pishock_client):
                 pkg = None
                 for cmd in packet:
                     if cmd.get('cmd') == 'DataPackage':
-                        pkg = cmd['data'].get('games', {}).get(GAME, {})
+                        pkg = cmd['data'].get('games', {}).get(game, {})
                         break
                 if pkg is None:
                     continue
@@ -86,31 +160,11 @@ async def archipelago_client(pishock_client):
             name_map = {item_id: name for name, item_id in item_map.items()}
             loc_map = pkg.get('location_name_to_id', {})
             location_map = {loc_id: name for name, loc_id in loc_map.items()}
-            print(f"Loaded {len(name_map)} items and {len(location_map)} locations for {GAME}")
+            print(f"Loaded {len(name_map)} items and {len(location_map)} locations for {game}")
             break
 
-        # 5) Send Connect
-        await ws.send(json.dumps([{
-            "cmd":            "Connect",
-            "name":           SLOT_NAME,
-            "password":       PASSWORD,
-            "game":           GAME,
-            "uuid":           str(uuid.uuid4()),
-            "version":        {"major": 0, "minor": 6, "build": 1, "class": "Version"},
-            "items_handling": ITEMS_HANDLING,
-            "tags":           TAGS,
-            "slot_data":      SLOT_DATA
-        }]))
-        print("Connecting to server...")
-
-        # 6) Connected confirmation
-        connected = json.loads(await ws.recv())
-        #print("Connected:", connected)
-        print("… now listening for RoomUpdate and ReceivedItems …")
-        
-        MY_SLOT_ID = get_my_slot(connected, SLOT_NAME)
-
         # 7) Main event loop
+        print("… now listening for RoomUpdate and ReceivedItems …")
         while True:
             frame = await ws.recv()
 
@@ -209,23 +263,23 @@ async def check_for_traps(processed_line: str, pishock_client, Is_player):
                 await websocket2.send_activation(devices, pishock_client)
 
 #use the connect payload to find the player slot aka your slot, and then return it for the other thingimajig
-def get_my_slot(connect_payload, my_name):
+def get_my_slots(connect_payload):
     if not isinstance(connect_payload, list):
-        return None
+        return None, None
 
     for entry in connect_payload:
-        if entry.get("name") == my_name and entry.get("slot") is not None:
-            return int(entry["slot"])
+        if entry.get("cmd") == "ConnectionRefused":
+            raise ArchipelagoConnectionRefused("Connection Refused", entry.get("errors"))
+            
+        if entry.get("cmd") == "Connected":
+            slot = entry.get("slot")
+            my_slots = [slot]
+            slots = entry.get("slot_info")
+            game = slots.get(str(slot)).get("game")
+            for slot_number, slot_data in slots.items():
+                if slot_data.get("type") == 2 and slot in slot_data.get("group_members", []):
+                    my_slots.append(int(slot_number))
+                
+            return my_slots, game
 
-        for p in entry.get("players", []):
-            if p.get("name") == my_name or p.get("alias") == my_name:
-                return int(p.get("slot"))
-
-        for slot_str, info in entry.get("slot_info", {}).items():
-            if info.get("name") == my_name:
-                try:
-                    return int(slot_str)
-                except ValueError:
-                    continue
-
-    return None
+    return None, None

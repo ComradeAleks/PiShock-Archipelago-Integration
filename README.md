@@ -29,7 +29,6 @@ archipelago:
   server: archipelago.gg    # The server you are connecting to. you must specify ws:// if connecting to a non-secure server
   room_code: 1235           # Your Archipelago room code
   name: YourName            # Your player name in the Archipelago session
-  game: YourGame            # The game you're playing in Archipelago
   password: null            # Password for the room (use null if no password)
 ```
 

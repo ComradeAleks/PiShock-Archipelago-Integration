@@ -1,10 +1,12 @@
 import asyncio
 import arc_connect
+import traceback
 import win32api
 import win32con
 import atexit
 import sys
 import nest_asyncio
+from websockets.exceptions import WebSocketException
 nest_asyncio.apply()
 
 # Store the PiShock client globally
@@ -39,14 +41,30 @@ atexit.register(lambda: print("Program exited normally."))
 # Establish connection at program start
 async def run():
     global pishock_client
+    retry_delay = 5
     from websocket2 import PiShockClient  # Import here to avoid circular imports
     pishock_client = PiShockClient()
     await pishock_client.connect()
-    await arc_connect.archipelago_client(pishock_client)  # pass client into your logic
+    while True:
+        connected_successfully = []
+        try:
+            await arc_connect.archipelago_client(pishock_client, connected_successfully)  # pass client into your logic
+        except arc_connect.ArchipelagoConnectionRefused as ex:
+            print(f"Fatal archipelago connection error: {ex}")
+            break
+        except (WebSocketException, OSError, ConnectionError) as ex:
+            if any(connected_successfully):
+                retry_delay = 5                
+            print(f"Connection failed: {ex} {type(ex)}, retrying in {retry_delay} seconds.")
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, 600)
+    
+
+
 
 try:
-    while True:
-        asyncio.run(run())
+    asyncio.run(run())
 except KeyboardInterrupt:
     print("Caught KeyboardInterrupt. Exiting...")
-    sys.exit(0)
+    sys.exit(0) 
+        
