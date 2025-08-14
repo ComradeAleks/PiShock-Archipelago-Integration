@@ -60,11 +60,10 @@ async def run():
             retry_delay = min(retry_delay * 2, 600)
     
 
-
-
-try:
-    asyncio.run(run())
-except KeyboardInterrupt:
-    print("Caught KeyboardInterrupt. Exiting...")
-    sys.exit(0) 
+if __name__ == "__main__":
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        print("Caught KeyboardInterrupt. Exiting...")
+        sys.exit(0) 
         
