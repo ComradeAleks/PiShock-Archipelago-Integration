@@ -44,7 +44,7 @@ class PiShockClient:
         self._lock = asyncio.Lock()
         self._recv_queue = asyncio.Queue()
         self._recv_task = None
-        print("WebSocket URL:", self.ws_url)
+        print("PiShock WebSocket URL:", self.ws_url)
 
     async def connect(self, retry_interval=5):
             while True:
@@ -136,6 +136,7 @@ class PiShockClient:
         )
 
     async def send_activation_now(self, commands: list[list[str | int]], repeating: bool = False):
+        sleep_time = max([x[5] for x in commands]) / 1000
         command_packet = self._build_command_packet(commands, repeating)
         payload = json.dumps(asdict(command_packet))
         #print("Sending payload:", payload)
@@ -144,7 +145,8 @@ class PiShockClient:
             try:
                 await self.ws.send(payload)
                 response = await asyncio.wait_for(self._recv_queue.get(), timeout=5.0)
-                print("Activation sent successfully")
+                print(f"Activation sent successfully, waiting for {sleep_time} seconds.")
+                await asyncio.sleep(sleep_time)
                 return response
             except asyncio.TimeoutError:
                 print("Timed out waiting for server response.")
