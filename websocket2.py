@@ -137,6 +137,8 @@ class PiShockClient:
 
     async def send_activation_now(self, commands: list[list[str | int]], repeating: bool = False):
         sleep_time = max([x[5] for x in commands]) / 1000
+        activations = {{0:"Activate",1:"Vibrate",2:"Beep"}.get(x[3]) for x in commands}
+        intensity = max([x[4] for x in commands])
         command_packet = self._build_command_packet(commands, repeating)
         payload = json.dumps(asdict(command_packet))
         #print("Sending payload:", payload)
@@ -145,7 +147,7 @@ class PiShockClient:
             try:
                 await self.ws.send(payload)
                 response = await asyncio.wait_for(self._recv_queue.get(), timeout=5.0)
-                print(f"Activation sent successfully, waiting for {sleep_time} seconds.")
+                print(f"Activation sent successfully, waiting for {sleep_time} seconds. ({', '.join(activations)}): {intensity}")
                 await asyncio.sleep(sleep_time)
                 return response
             except asyncio.TimeoutError:
