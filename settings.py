@@ -2,6 +2,8 @@ import os
 import requests
 import yaml
 import sys
+from utils import safe_load_unique, validate_pishock_config, validate_archipelago_config, ensure_pishock_config, ensure_archipelago_config
+
 
 if getattr(sys, 'frozen', False):
     current_dir = os.path.dirname(sys.executable)
@@ -10,17 +12,27 @@ else:
 
 if len(sys.argv) > 1:
     archipelago_config_path = sys.argv[1]
+    archipelago_config_ensured = True
 else:
     archipelago_config_path = os.path.join(current_dir, "archipelago_config.yaml")
+    archipelago_config_ensured = ensure_archipelago_config(archipelago_config_path)
+
     
 pishock_config_path = os.path.join(current_dir, "pishock_config.yaml")
+pishock_config_ensured = ensure_pishock_config(pishock_config_path)
+if not pishock_config_ensured and not archipelago_config_ensured:
+    raise ValueError("defaults for both pishock_config.yaml and archipelago_config.yaml were just created.")
+
+if not pishock_config_ensured:
+    raise ValueError("default pishock_config.yaml just created.")
+    
+if not archipelago_config_ensured:
+    raise ValueError("default archipelago_config.yaml just created.")
 
 # Load YAML
 with open(pishock_config_path, 'r') as file:
-    pishock_config = yaml.safe_load(file)
-    
-with open(archipelago_config_path, 'r') as file:
-    archipelago_config = yaml.safe_load(file)
+    pishock_config = safe_load_unique(file, pishock_config_path)
+    validate_pishock_config(pishock_config)
     
 ## PiShock configuration data
 #PiShock variables:
@@ -32,23 +44,11 @@ hub_client_id       = pishock_config["pishock"]["client_id"]
 devices             = pishock_config.get("devices", {})
 device_profiles     = pishock_config.get("device_profiles", {})
 activation_profiles = pishock_config.get("activation_profiles", {})
-ap_activations      = archipelago_config.get("activation_profiles", {})
 
-activation_profiles.update(ap_activations)
-if not devices and device_profiles and activation_profiles:
-    # Build all possible device combinations from device_profiles and activation profiles, one time.
-    for device_key, device_value in device_profiles.items():
-        for activation_key, activation_value in activation_profiles.items():
-            device_name = f"{device_key}{activation_key}"
-            devices[device_name] = {
-                "device_id": device_value["device_id"],
-                "share_code": device_value["share_code"],
-                "mode": activation_value["mode"],
-                "intensity": activation_value["intensity"],
-                "duration": activation_value["duration"]
-            }
-
-
+with open(archipelago_config_path, 'r') as file:
+    archipelago_config = safe_load_unique(file, archipelago_config_path)
+    validate_archipelago_config(archipelago_config, devices, device_profiles, activation_profiles)
+    
 
 ## Archipelago configuration data
 #Archipelago variables:
@@ -72,6 +72,7 @@ traps               = archipelago_config.get("traps", {})
 
 #other items:
 otherChecks         = archipelago_config.get("OtherChecks", {"activated": False, "send/receive": "all", "devices": []})
+
 
 def fetch_user_id() -> str:
     """

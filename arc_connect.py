@@ -7,11 +7,9 @@ import websocket2
 import settings
 import asyncio
 
-if settings.server_address.startswith("ws://"):
-    SERVER_URI = f"{settings.server_address}:{settings.server_port}"
-else:
-    SERVER_URI     = f"wss://{settings.server_address}:{settings.server_port}" 
+from utils import format_ws_uri
 
+SERVER_URI = format_ws_uri(settings.server_address, settings.server_port)
 SLOT_NAME      = settings.archipelago_name
 ITEMS_HANDLING = 0b001
 SLOT_DATA      = False
