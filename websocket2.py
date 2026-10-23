@@ -4,6 +4,7 @@ import websockets
 from dataclasses import dataclass, asdict
 from typing import List, Optional
 import settings
+from utils import PiShockAuthError
 
 @dataclass
 class PublishLogData:
@@ -53,13 +54,21 @@ class PiShockClient:
                     self.ws = await websockets.connect(
                         self.ws_url,
                         compression=None,
-                        ping_interval=None,
                         max_size=None,
                         max_queue=None
                     )
+                    await self.ws.send(json.dumps({"Operation": "PING"}))
+                    response = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=5.0))
+                    if response.get("IsError"):
+                        await self.ws.close()
+                        raise PiShockAuthError(
+                            f"PiShock rejected the login for '{settings.pishock_name}': {response.get('Message')}"
+                        )
                     self._recv_task = asyncio.create_task(self._receive_loop())
                     print("connected to websocket")
                     break  # exit loop if connection is successful
+                except PiShockAuthError:
+                    raise
                 except Exception as e:
                     print(f"Connection failed: {e}. Retrying in {retry_interval} seconds...")
                     await asyncio.sleep(retry_interval)
@@ -125,7 +134,7 @@ class PiShockClient:
             )
 
             publish_commands.append(PublishCommand(
-                Target=f"c{settings.hub_client_id}-sops-{share_code}", #maybe -ops for owneer accounts?
+                Target=f"c{settings.share_client_ids.get(share_code, settings.hub_client_id)}-sops-{share_code}", #maybe -ops for owneer accounts?
                 Body=body
             ))
 

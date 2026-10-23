@@ -2,14 +2,20 @@ import gzip
 import json
 import uuid
 import json
+import contextlib
 import websockets
 import websocket2
 import settings
 import asyncio
 
+from websockets.exceptions import WebSocketException
 from utils import format_ws_uri
 
 SERVER_URI = format_ws_uri(settings.server_address, settings.server_port)
+if "://" in settings.server_address:
+    SERVER_URIS = [SERVER_URI]
+else:
+    SERVER_URIS = [SERVER_URI, format_ws_uri(settings.server_address, settings.server_port, default_scheme="ws")]
 SLOT_NAME      = settings.archipelago_name
 ITEMS_HANDLING = 0b001
 SLOT_DATA      = False
@@ -60,16 +66,32 @@ def classify_refusal(errors: list[str]):
         return "both"
     return None
 
+@contextlib.asynccontextmanager
+async def connect_archipelago():
+    for uri in SERVER_URIS:
+        print(f"Connecting to {uri}")
+        try:
+            ws = await websockets.connect(uri, max_size=None)
+        except (WebSocketException, OSError) as ex:
+            if uri == SERVER_URIS[-1]:
+                raise
+            print(f"Connection to {uri} failed: {ex!r}")
+            continue
+        try:
+            yield ws
+        finally:
+            await ws.close()
+        return
+
 async def archipelago_client(pishock_client, connected_successfully):
     slot_name = SLOT_NAME
     password = PASSWORD
-    name_map = {}
+    name_maps = {}
     location_map = {}
     seen_locations = set()
     items_not_for_self = any([not trap.get("for_self", True) for trap in settings.traps.values()])
 
-    print(f"Connecting to {SERVER_URI}")
-    async with websockets.connect(SERVER_URI, max_size=None) as ws:
+    async with connect_archipelago() as ws:
         # 1) Initial RoomInfo
         raw = await ws.recv()
         packet = json.loads(raw)
@@ -95,7 +117,7 @@ async def archipelago_client(pishock_client, connected_successfully):
                 "password":       password,
                 "game":           None,     # Game is fetched from slot_info after presenting as a Tracker
                 "uuid":           str(uuid.uuid4()),
-                "version":        {"major": 0, "minor": 6, "build": 1, "class": "Version"},
+                "version":        room_info.get("version") or {"major": 0, "minor": 6, "build": 1, "class": "Version"},
                 "items_handling": ITEMS_HANDLING,
                 "tags":           TAGS,
                 "slot_data":      SLOT_DATA
@@ -106,7 +128,7 @@ async def archipelago_client(pishock_client, connected_successfully):
             connected = json.loads(await ws.recv())
             #print("Connected:", connected)
             try:
-                MY_SLOT_IDS, game = get_my_slots(connected)
+                MY_SLOT_IDS, game, slot_games = get_my_slots(connected)
             except ArchipelagoConnectionRefused as ex:
                 kind = classify_refusal(ex.errors)
                 if kind is None:
@@ -135,31 +157,33 @@ async def archipelago_client(pishock_client, connected_successfully):
             print("Fetching full DataPackage (all games)")
         await ws.send(json.dumps([dp_req]))
 
-        # 6) Process DataPackage to populate name_map and location_map
+        # 6) Process DataPackage to populate name_maps (per game) and location_map
         while True:
             frame = await ws.recv()
             if isinstance(frame, (bytes, bytearray)):
                 try:
                     data = gzip.decompress(frame).decode()
-                    pkg = json.loads(data).get('games', {}).get(game, {})
+                    games_data = json.loads(data).get('games', {})
                 except Exception:
                     continue
             else:
                 packet = json.loads(frame)
-                pkg = None
+                games_data = None
                 for cmd in packet:
                     if cmd.get('cmd') == 'DataPackage':
-                        pkg = cmd['data'].get('games', {}).get(game, {})
+                        games_data = cmd['data'].get('games', {})
                         break
-                if pkg is None:
+                if games_data is None:
                     continue
 
             # Invert mappings from DataPackage
-            item_map = pkg.get('item_name_to_id', {})
-            name_map = {item_id: name for name, item_id in item_map.items()}
-            loc_map = pkg.get('location_name_to_id', {})
+            name_maps = {
+                game_name: {item_id: name for name, item_id in pkg.get('item_name_to_id', {}).items()}
+                for game_name, pkg in games_data.items()
+            }
+            loc_map = games_data.get(game, {}).get('location_name_to_id', {})
             location_map = {loc_id: name for name, loc_id in loc_map.items()}
-            print(f"Loaded {len(name_map)} items and {len(location_map)} locations for {game}")
+            print(f"Loaded {len(name_maps.get(game, {}))} items and {len(location_map)} locations for {game}")
             break
 
         # 7) Main event loop
@@ -193,15 +217,14 @@ async def archipelago_client(pishock_client, connected_successfully):
                     Is_player = cmd.get("receiving") in MY_SLOT_IDS
                     #print(cmd)
                     sender_id = cmd.get("item", {}).get("player")
-                    # 2) gets the item_id, from the JSON text field
-                    if sender_id in MY_SLOT_IDS or items_not_for_self:
+                    # 2) gets the item_id, from the JSON text field (items you receive from others are handled by ReceivedItems)
+                    if sender_id in MY_SLOT_IDS or (items_not_for_self and not Is_player):
                         print("checking for item")
-                        await check_for_items(cmd, name_map, pishock_client, Is_player)
-                    break
-                    
+                        await check_for_items(cmd, name_maps, slot_games, game, pishock_client, Is_player)
+
                 elif c == "ReceivedItems":
                     print("checking for item")
-                    await check_for_items(cmd, name_map, pishock_client, True)
+                    await check_for_items(cmd, name_maps, slot_games, game, pishock_client, True)
 
                 # Auto-checking locations
                 elif c == "RoomUpdate":
@@ -216,13 +239,13 @@ async def archipelago_client(pishock_client, connected_successfully):
             
   
 
-async def check_for_items(cmd, name_map, pishock_client, Is_player):
+async def check_for_items(cmd, name_maps, slot_games, my_game, pishock_client, Is_player):
     if cmd.get("cmd") == "ReceivedItems":
         # Received items packet.  These are 100% for the player.  Ignore PrintJSON packets that reveal items for the player.
         items = cmd.get("items")
         for item in items:
             item_id = item.get("item")
-            item_name = name_map.get(item_id, "<unknown>")
+            item_name = name_maps.get(my_game, {}).get(item_id, "<unknown>")
             print(f"Recieved item: {item_name} (ID {item_id})")
             await check_for_traps(item_name, pishock_client, Is_player)
             
@@ -231,7 +254,8 @@ async def check_for_items(cmd, name_map, pishock_client, Is_player):
             if entry.get("type") == "item_id":
                 # get item and print it
                 item_id   = int(entry["text"])
-                item_name = name_map.get(item_id, "<unknown>")
+                item_game = slot_games.get(entry.get("player"), my_game)
+                item_name = name_maps.get(item_game, {}).get(item_id, "<unknown>")
                 if Is_player:
                     print(f"Recieved item: {item_name} (ID {item_id})")
                 else:
@@ -277,7 +301,7 @@ async def check_for_traps(processed_line: str, pishock_client, Is_player):
 #use the connect payload to find the player slot aka your slot, and then return it for the other thingimajig
 def get_my_slots(connect_payload):
     if not isinstance(connect_payload, list):
-        return None, None
+        return None, None, None
 
     for entry in connect_payload:
         if entry.get("cmd") == "ConnectionRefused":
@@ -291,7 +315,8 @@ def get_my_slots(connect_payload):
             for slot_number, slot_data in slots.items():
                 if slot_data.get("type") == 2 and slot in slot_data.get("group_members", []):
                     my_slots.append(int(slot_number))
-                
-            return my_slots, game
+            slot_games = {int(slot_number): slot_data.get("game") for slot_number, slot_data in slots.items()}
 
-    return None, None
+            return my_slots, game, slot_games
+
+    return None, None, None

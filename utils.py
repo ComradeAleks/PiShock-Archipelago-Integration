@@ -116,6 +116,9 @@ def ensure_archipelago_config(path):
 class DuplicateKeyError(yaml.YAMLError):
     pass
 
+class PiShockAuthError(Exception):
+    pass
+
 class UniqueKeySafeLoader(yaml.SafeLoader):
     """
     Safe loader that:
@@ -262,7 +265,7 @@ def validate_pishock_config(doc):
 
     device_profiles:        # optional
       <any_name>:
-        device_id: int in [0, 65535]      # required
+        device_id: int >= 0               # required
         share_code: UPPER HEX string      # required
 
     activation_profiles:    # optional
@@ -301,7 +304,8 @@ def validate_pishock_config(doc):
             require_mapping(device, path)
             
             dev_id = require_int(require_present(device, "device_id", path), f"{path}.device_id")
-            require_range(dev_id, 0, 65535, f"{path}.device_id")
+            if dev_id < 0:
+                raise ValueError(f"{path}.device_id must be a non-negative integer.")
             
             share_code = require_str(require_present(device, "share_code", path), f"{path}.share_code")
             if not is_upper_hex(share_code):
@@ -330,7 +334,8 @@ def validate_pishock_config(doc):
             require_mapping(prof, path)
 
             dev_id = require_int(require_present(prof, "device_id", path), f"{path}.device_id")
-            require_range(dev_id, 0, 65535, f"{path}.device_id")
+            if dev_id < 0:
+                raise ValueError(f"{path}.device_id must be a non-negative integer.")
 
             share_code = require_str(require_present(prof, "share_code", path), f"{path}.share_code")
             if not is_upper_hex(share_code):

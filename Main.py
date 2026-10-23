@@ -6,7 +6,7 @@ import atexit
 import sys
 import nest_asyncio
 from websockets.exceptions import WebSocketException
-from utils import DuplicateKeyError, pause_then_exit
+from utils import DuplicateKeyError, PiShockAuthError, pause_then_exit
 nest_asyncio.apply()
 
 try:
@@ -16,6 +16,9 @@ except DuplicateKeyError as ex:
     pause_then_exit(1)
 except ValueError as ex:
     print(f"Config schema error: {ex}")
+    pause_then_exit(1)
+except PiShockAuthError as ex:
+    print(ex)
     pause_then_exit(1)
 
 # Store the PiShock client globally
@@ -76,5 +79,8 @@ if __name__ == "__main__":
         print("Caught KeyboardInterrupt. Exiting...")
         sys.exit(0)
     except arc_connect.ArchipelagoConnectionRefused:
+        pause_then_exit(1)
+    except PiShockAuthError as ex:
+        print(ex)
         pause_then_exit(1)
         

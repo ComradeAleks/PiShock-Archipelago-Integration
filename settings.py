@@ -2,7 +2,7 @@ import os
 import requests
 import yaml
 import sys
-from utils import safe_load_unique, validate_pishock_config, validate_archipelago_config, ensure_pishock_config, ensure_archipelago_config
+from utils import PiShockAuthError, safe_load_unique, validate_pishock_config, validate_archipelago_config, ensure_pishock_config, ensure_archipelago_config
 
 
 if getattr(sys, 'frozen', False):
@@ -77,22 +77,39 @@ otherChecks         = archipelago_config.get("OtherChecks", {"activated": False,
 def fetch_user_id() -> str:
     """
     Fetches and returns your numeric PiShock UserID by validating
-    the API key and username via the Auth/GetUserIfAPIKeyValid endpoint.
+    the API key via the api.pishock.com/Account endpoint.
     """
-    url = (
-        "https://auth.pishock.com/Auth/GetUserIfAPIKeyValid"
-        f"?apikey={api_key}"
-        f"&username={pishock_name}"
+    resp = requests.get(
+        "https://api.pishock.com/Account",
+        headers={"X-PiShock-Api-Key": api_key}
     )
-    resp = requests.get(url)
+    if resp.status_code in (401, 403):
+        raise PiShockAuthError(
+            f"PiShock rejected the API key (HTTP {resp.status_code}). "
+            "Check api_key in pishock_config.yaml, and generate a new key if it was made before 2024-10-15."
+        )
     resp.raise_for_status()  # will raise an HTTPError for 4xx/5xx
 
     data = resp.json()
     # The JSON payload should include something like {"UserId":"123456", ...}
-    user_id = data.get("UserId") or data.get("userId") or data.get("ID")
+    user_id = data.get("UserId") or data.get("userId") or data.get("ID") or data.get("UserID")
     if not user_id:
         raise ValueError(f"Unexpected response format: {data!r}")
     return str(user_id)
 
 USERID = fetch_user_id()
+
+def fetch_share_client_ids() -> dict:
+    try:
+        resp = requests.get(
+            "https://api.pishock.com/Share/GetShared",
+            headers={"X-PiShock-Api-Key": api_key}
+        )
+        resp.raise_for_status()
+        return {share["ShareCode"]: share["ClientId"] for share in resp.json()}
+    except (requests.RequestException, ValueError, KeyError, TypeError) as ex:
+        print(f"Could not look up hub IDs for share codes, using client_id {hub_client_id} for all devices: {ex}")
+        return {}
+
+share_client_ids = fetch_share_client_ids()
 
